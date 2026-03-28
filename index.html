@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mauritania Explorer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --sand:#e8d5a3;--sand-dark:#c9b07a;--sand-light:#f5ead0;
+      --terracotta:#c0622a;--terracotta-dark:#8b4115;
+      --ink:#1a1208;--stone:#9e8b6e;--stone-dark:#6b5d42;--gold:#e8c87a;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',sans-serif;}
+
+    /* ── Full-screen background: nomadic man ── */
+    #bg{
+      position:fixed;inset:0;z-index:0;
+      background:
+        url('https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=1600&q=85')
+        center center / cover no-repeat;
+    }
+    /* Dark gradient overlay — heavier at top/bottom, lighter in middle */
+    #bgOverlay{
+      position:fixed;inset:0;z-index:1;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,6,2,0.45) 0%, rgba(10,6,2,0.78) 100%);
+    }
+
+    #app{position:relative;z-index:2;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+    /* ── Header ── */
+    header{flex-shrink:0;text-align:center;padding:12px 16px 6px;}
+    header h1{font-family:'Amiri',serif;font-size:clamp(1.5rem,3.5vw,2.4rem);color:var(--gold);
+      text-shadow:0 2px 20px rgba(0,0,0,0.9),0 0 40px rgba(192,98,42,0.4);}
+    header p{font-size:0.72rem;color:#b09060;margin-top:2px;letter-spacing:0.5px;}
+
+    .legend{display:flex;justify-content:center;flex-wrap:wrap;gap:5px;padding:5px 12px;}
+    .legend-item{display:flex;align-items:center;gap:5px;font-size:0.7rem;color:#c8a870;cursor:pointer;
+      padding:3px 9px;border-radius:99px;background:rgba(0,0,0,0.4);border:1.5px solid rgba(255,255,255,0.1);
+      transition:all 0.2s;backdrop-filter:blur(4px);}
+    .legend-item:hover,.legend-item.active{border-color:#c0622a;background:rgba(192,98,42,0.35);color:var(--gold);}
+    .legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
+    /* ── Map area ── */
+    .map-area{
+      flex:1;display:flex;flex-direction:row;gap:10px;
+      padding:5px 10px 5px;min-height:0;align-items:stretch;
+    }
+
+    /* World inset */
+    .world-inset{
+      flex-shrink:0;width:145px;
+      background:rgba(5,15,25,0.85);
+      border:1.5px solid rgba(232,200,122,0.4);border-radius:12px;
+      display:flex;flex-direction:column;align-items:center;
+      padding:10px 8px;gap:5px;
+      backdrop-filter:blur(8px);
+      box-shadow:0 4px 20px rgba(0,0,0,0.6);
+    }
+    .world-inset-title{font-size:0.65rem;color:var(--gold);font-family:'Amiri',serif;letter-spacing:1px;text-transform:uppercase;}
+    #worldSVG{width:126px;height:auto;}
+    .world-inset-sub{font-size:0.6rem;color:#8a7a5a;text-align:center;line-height:1.4;}
+
+    /* Main map */
+    .map-frame{
+      flex:1;min-width:0;
+      border-radius:18px;
+      border:2px solid rgba(200,160,80,0.4);
+      box-shadow:0 8px 40px rgba(0,0,0,0.6),inset 0 0 0 1px rgba(255,255,255,0.05);
+      position:relative;overflow:hidden;
+    }
+    #mapSVG{width:100%;height:100%;display:block;}
+
+    /* ── Phone layout ── */
+    @media(max-width:640px){
+      /* Fix iOS 100vh black bar issue */
+      #app{height:100dvh;}
+
+      header{padding:6px 12px 2px;}
+      header h1{font-size:1.2rem;}
+      header p{display:none;}
+      .legend{gap:3px;padding:2px 8px;}
+      .legend-item{font-size:0.58rem;padding:2px 6px;}
+      .legend-dot{width:7px;height:7px;}
+
+      .map-area{
+        flex-direction:column;
+        padding:3px 8px 3px;
+        gap:5px;
+      }
+
+      /* World inset — compact horizontal strip */
+      .world-inset{
+        width:100%;flex-direction:row;align-items:center;flex-shrink:0;
+        padding:5px 10px;gap:8px;border-radius:10px;
+      }
+      .world-inset-title{font-size:0.56rem;white-space:nowrap;}
+      #worldSVG{width:75px;height:52px;flex-shrink:0;}
+      .world-inset-sub{font-size:0.54rem;text-align:left;}
+
+      /* Map fills ALL remaining space */
+      .map-frame{border-radius:12px;flex:1;min-height:0;}
+
+      .music-bar{padding:3px 10px 6px;gap:6px;}
+      .music-btn{font-size:0.7rem;padding:4px 12px;}
+      .music-info{font-size:0.62rem;max-width:130px;}
+
+      #ytPlayer{width:160px;height:92px;bottom:50px;right:8px;}
+      #ytPlayer iframe{width:160px;height:92px;}
+    }
+
+    /* ── Music bar ── */
+    .music-bar{
+      flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;
+      padding:5px 12px 10px;
+    }
+    .music-btn{
+      background:rgba(192,98,42,0.45);border:1.5px solid rgba(192,98,42,0.8);color:var(--gold);
+      border-radius:99px;padding:6px 18px;font-size:0.8rem;font-weight:600;cursor:pointer;
+      display:flex;align-items:center;gap:7px;transition:all 0.2s;backdrop-filter:blur(4px);
+      white-space:nowrap;box-shadow:0 2px 12px rgba(192,98,42,0.3);
+    }
+    .music-btn:hover{background:rgba(192,98,42,0.65);transform:scale(1.03);}
+    .music-info{
+      font-size:0.78rem;color:var(--gold);font-style:italic;
+      background:rgba(0,0,0,0.35);padding:4px 12px;border-radius:99px;
+      border:1px solid rgba(232,200,122,0.2);backdrop-filter:blur(4px);
+      max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .music-pulse{width:8px;height:8px;border-radius:50%;background:#c0622a;flex-shrink:0;animation:mpulse 1.2s ease-in-out infinite;}
+    @keyframes mpulse{0%,100%{opacity:0.4;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
+
+    /* YouTube player — visible small corner player */
+    #ytPlayer{
+      position:fixed;bottom:56px;right:12px;z-index:30;
+      width:200px;height:115px;
+      border-radius:10px;overflow:hidden;
+      box-shadow:0 4px 20px rgba(0,0,0,0.7);
+      border:1px solid rgba(232,200,122,0.3);
+      display:none;
+      transition:opacity 0.3s;
+    }
+    #ytPlayer iframe{width:200px;height:115px;border:none;display:block;}
+
+    /* iOS tap-to-start overlay */
+    #musicOverlay{
+      position:fixed;inset:0;z-index:60;
+      background:rgba(10,6,2,0.82);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+      backdrop-filter:blur(6px);cursor:pointer;
+    }
+    #musicOverlay .overlay-emoji{font-size:3rem;}
+    #musicOverlay h2{font-family:'Amiri',serif;color:var(--gold);font-size:1.5rem;text-align:center;}
+    #musicOverlay p{color:#9a8060;font-size:0.85rem;text-align:center;max-width:260px;line-height:1.5;}
+    #musicOverlay .tap-btn{
+      background:rgba(192,98,42,0.5);border:2px solid #c0622a;color:var(--gold);
+      border-radius:99px;padding:10px 28px;font-size:1rem;font-weight:600;
+      margin-top:8px;animation:pulse-btn 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-btn{0%,100%{box-shadow:0 0 0 0 rgba(192,98,42,0.4);}50%{box-shadow:0 0 0 12px rgba(192,98,42,0);}}
+
+    /* ── SVG Regions ── */
+    .region{cursor:pointer;transition:filter 0.2s;}
+    .region:hover{filter:brightness(1.25) drop-shadow(0 0 8px rgba(232,200,122,0.65));}
+    .region.pulse{animation:pulse-r 2s ease-in-out infinite;}
+    @keyframes pulse-r{0%,100%{filter:brightness(1) drop-shadow(0 0 3px rgba(192,98,42,0.3));}50%{filter:brightness(1.2) drop-shadow(0 0 12px rgba(192,98,42,0.8));}}
+
+    /* ── Info Panel ── */
+    .panel-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:40;backdrop-filter:blur(3px);}
+    .panel-backdrop.open{display:block;}
+    .info-panel{position:fixed;right:-420px;top:0;width:360px;max-width:96vw;height:100vh;
+      background:linear-gradient(160deg,#2a1a0a,#1a1005);
+      border-left:1px solid rgba(232,200,122,0.2);
+      z-index:50;overflow-y:auto;transition:right 0.35s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;}
+    .info-panel.open{right:0;}
+    @media(max-width:640px){
+      .info-panel{right:auto;left:0;bottom:-100%;top:auto;width:100%;height:82vh;
+        border-left:none;border-top:1px solid rgba(232,200,122,0.2);border-radius:20px 20px 0 0;
+        transition:bottom 0.35s cubic-bezier(0.4,0,0.2,1);}
+      .info-panel.open{bottom:0;}
+    }
+    .panel-hero-ph{width:100%;height:155px;display:flex;align-items:center;justify-content:center;font-size:4.5rem;}
+    .panel-close{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;
+      background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#bbb;font-size:0.85rem;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;}
+    .panel-body{padding:16px;flex:1;}
+    .panel-cat{display:inline-block;font-size:0.67rem;font-weight:600;text-transform:uppercase;
+      letter-spacing:1px;padding:2px 9px;border-radius:99px;margin-bottom:6px;}
+    .panel-title{font-family:'Amiri',serif;font-size:1.55rem;color:var(--gold);margin-bottom:3px;}
+    .panel-sub{font-size:0.78rem;color:#9a8060;margin-bottom:10px;}
+    .panel-desc{font-size:0.83rem;line-height:1.65;color:#c8b090;margin-bottom:14px;}
+    .panel-facts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;}
+    .fact-card{background:rgba(255,255,255,0.05);border:1px solid rgba(232,200,122,0.15);border-radius:8px;padding:8px 10px;}
+    .fact-label{font-size:0.63rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#8a7050;margin-bottom:1px;}
+    .fact-value{font-size:0.83rem;font-weight:600;color:var(--gold);}
+    .panel-links{display:flex;flex-direction:column;gap:7px;}
+    .link-btn{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;text-decoration:none;
+      font-size:0.8rem;font-weight:500;transition:all 0.2s;border:1.5px solid transparent;}
+    .link-btn:hover{transform:translateX(4px);}
+    .link-instagram{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:white;}
+    .link-youtube{background:#ff0000;color:white;}
+    .link-wiki{background:rgba(255,255,255,0.9);color:#1a1208;border-color:rgba(200,160,80,0.4);}
+    .link-google{background:#4285f4;color:white;}
+    .link-maps{background:#34a853;color:white;}
+  </style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="bgOverlay"></div>
+<div id="app">
+
+  <header>
+    <h1>🇲🇷 Mauritania Explorer</h1>
+    <p>Click on any highlighted area to discover it</p>
+    <div class="legend">
+      <div class="legend-item active" onclick="filterCat(this,'all')"><div class="legend-dot" style="background:#888"></div>All</div>
+      <div class="legend-item" onclick="filterCat(this,'nature')"><div class="legend-dot" style="background:#6a8c4f"></div>Nature</div>
+      <div class="legend-item" onclick="filterCat(this,'historic')"><div class="legend-dot" style="background:#c0622a"></div>Historic</div>
+      <div class="legend-item" onclick="filterCat(this,'transport')"><div class="legend-dot" style="background:#4a9db5"></div>Transport</div>
+      <div class="legend-item" onclick="filterCat(this,'city')"><div class="legend-dot" style="background:#9e8b6e"></div>Cities</div>
+    </div>
+  </header>
+
+  <div class="map-area">
+
+    <!-- World inset — clear dark panel -->
+    <div class="world-inset">
+      <div class="world-inset-title">📍 Location</div>
+      <svg id="worldSVG" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+        <rect width="160" height="100" fill="#0a1824" rx="6"/>
+        <!-- Grid lines -->
+        <line x1="0" y1="50" x2="160" y2="50" stroke="rgba(232,200,122,0.15)" stroke-width="0.6" stroke-dasharray="3 3"/>
+        <line x1="80" y1="0" x2="80" y2="100" stroke="rgba(232,200,122,0.08)" stroke-width="0.6"/>
+        <!-- Americas -->
+        <path d="M 18,12 Q 30,8 38,18 L 40,38 Q 37,54 30,65 Q 22,73 16,68 Q 9,58 8,42 Q 7,26 14,16 Z" fill="#2a2018" stroke="#3a3020" stroke-width="0.8" opacity="0.8"/>
+        <!-- South America -->
+        <path d="M 30,70 Q 40,67 46,74 L 47,88 Q 44,96 37,96 Q 30,94 27,85 Q 24,76 28,72 Z" fill="#2a2018" stroke="#3a3020" stroke-width="0.7" opacity="0.7"/>
+        <!-- Europe -->
+        <path d="M 72,6 Q 86,4 93,12 L 94,22 Q 86,25 76,24 Q 68,20 68,14 Z" fill="#3a3020" stroke="#5a4a28" stroke-width="0.8"/>
+        <!-- Africa — clean recognizable shape -->
+        <path d="M 68,24 Q 84,20 96,26 L 100,40 Q 103,55 100,68 Q 96,82 86,90 Q 77,96 68,93 Q 58,89 53,77 Q 48,64 49,50 Q 49,36 56,28 Z" fill="#5a4520" stroke="#7a6030" stroke-width="1.2"/>
+        <!-- Mauritania highlight — north-west Africa -->
+        <path d="M 55,28 Q 68,22 82,27 L 85,42 Q 74,48 60,47 Q 50,44 49,36 Z" fill="#c0622a" opacity="0.9" stroke="#e8c87a" stroke-width="1"/>
+        <!-- Pin on Mauritania -->
+        <circle cx="68" cy="37" r="3.5" fill="#e8c87a"/>
+        <circle cx="68" cy="37" r="2" fill="#c0622a"/>
+        <!-- Label -->
+        <text x="90" y="36" fill="#e8c87a" font-size="6" font-weight="700">MR</text>
+        <!-- Middle East / Asia -->
+        <path d="M 98,12 Q 130,8 148,18 L 150,32 Q 136,38 112,36 Q 96,32 94,22 Z" fill="#2a2018" stroke="#3a3020" stroke-width="0.8" opacity="0.7"/>
+        <!-- SE Asia islands -->
+        <ellipse cx="136" cy="55" rx="12" ry="7" fill="#2a2018" stroke="#3a3020" stroke-width="0.7" opacity="0.6"/>
+        <!-- Equator label -->
+        <text x="4" y="53" fill="rgba(232,200,122,0.35)" font-size="4.5" font-style="italic">Equator</text>
+      </svg>
+      <div class="world-inset-sub">West Africa<br/>1,030,700 km²</div>
+    </div>
+
+    <!-- Main map -->
+    <div class="map-frame">
+      <svg id="mapSVG" viewBox="0 0 500 560" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#3a8fa8"/><stop offset="100%" style="stop-color:#2a7090"/>
+          </linearGradient>
+          <linearGradient id="sandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#d4b07a"/><stop offset="100%" style="stop-color:#b8904a"/>
+          </linearGradient>
+          <linearGradient id="sahGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#c89858"/><stop offset="100%" style="stop-color:#a87838"/>
+          </linearGradient>
+          <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" style="stop-color:#d4a96a;stop-opacity:0.8"/>
+            <stop offset="100%" style="stop-color:#b8884a;stop-opacity:0"/>
+          </radialGradient>
+          <pattern id="waterLines" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(15)">
+            <line x1="0" y1="10" x2="20" y2="10" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+          </pattern>
+          <filter id="softShadow"><feDropShadow dx="2" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.3)"/></filter>
+        </defs>
+
+        <!-- Ocean -->
+        <rect x="0" y="0" width="500" height="560" fill="url(#oceanGrad)"/>
+        <rect x="0" y="0" width="500" height="560" fill="url(#waterLines)"/>
+        <text x="35" y="285" fill="rgba(255,255,255,0.35)" font-size="8" font-style="italic" transform="rotate(-90,35,285)">ATLANTIC OCEAN</text>
+
+        <!-- Mauritania landmass -->
+        <path d="M 125,28 L 475,28 L 475,295 Q 455,330 435,365 Q 415,395 390,415 Q 360,432 328,442 Q 295,450 260,448 Q 225,444 195,432 Q 165,418 145,398 Q 120,372 108,342 Q 95,308 98,278 L 95,185 Q 98,130 110,85 Q 118,55 125,28 Z"
+          fill="url(#sandGrad)" stroke="#906830" stroke-width="2.5" filter="url(#softShadow)"/>
+
+        <!-- Northern Sahara overlay -->
+        <path d="M 125,28 L 475,28 L 475,250 Q 360,235 220,245 Q 155,242 98,248 L 98,130 Q 110,75 125,28 Z"
+          fill="url(#sahGrad)" opacity="0.4"/>
+
+        <!-- Dune shapes -->
+        <ellipse cx="200" cy="90" rx="55" ry="16" fill="rgba(255,255,255,0.04)" transform="rotate(-8,200,90)"/>
+        <ellipse cx="340" cy="72" rx="75" ry="18" fill="rgba(255,255,255,0.04)" transform="rotate(4,340,72)"/>
+        <ellipse cx="420" cy="175" rx="50" ry="14" fill="rgba(255,255,255,0.04)" transform="rotate(-4,420,175)"/>
+
+        <!-- Sahel strip -->
+        <path d="M 98,348 Q 130,338 170,336 Q 230,332 290,336 Q 348,338 398,326 Q 425,318 435,312 L 435,365 Q 415,395 390,415 Q 355,432 318,442 Q 275,450 230,447 Q 190,440 158,425 Q 128,408 108,382 Q 98,365 98,348 Z"
+          fill="#7a9058" opacity="0.28"/>
+
+        <!-- Senegal River -->
+        <path d="M 100,375 Q 130,385 165,390 Q 215,396 265,393 Q 310,390 358,382 Q 390,374 415,362"
+          fill="none" stroke="#5ab3cc" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+        <text x="185" y="406" fill="#3a8fa8" font-size="7" font-style="italic" opacity="0.7">Senegal River</text>
+
+        <!-- Banc d'Arguin coastal tint -->
+        <path d="M 98,210 Q 92,235 92,270 Q 92,295 95,318 L 80,318 L 78,210 Z"
+          fill="#3a9080" opacity="0.25"/>
+
+        <!-- ═══════ CLICKABLE REGIONS ═══════ -->
+
+        <!-- 1. Iron Ore Train -->
+        <g class="region pulse" id="region-train" data-place="train" onclick="openPlace('train')" data-cat="transport">
+          <path d="M 415,88 Q 348,102 285,116 Q 228,128 178,140 Q 148,148 115,157 Q 100,162 92,167"
+            stroke="#4a9db5" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="1 7" opacity="0.7"/>
+          <path d="M 415,88 Q 348,102 285,116 Q 228,128 178,140 Q 148,148 115,157 Q 100,162 92,167"
+            stroke="#7ec8e3" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-dasharray="1 7" opacity="0.4"/>
+          <circle cx="418" cy="86" r="8" fill="#4a9db5" stroke="white" stroke-width="2"/>
+          <circle cx="92" cy="167" r="8" fill="#2d7a92" stroke="white" stroke-width="2"/>
+          <circle cx="238" cy="124" r="5" fill="#4a9db5" stroke="white" stroke-width="1.5"/>
+          <text x="428" y="82" fill="#1a3040" font-size="8" font-weight="700">Zouerat</text>
+          <text x="58" y="178" fill="#1a3040" font-size="8" font-weight="700">Nouadhibou</text>
+          <text x="246" y="117" fill="#1a3040" font-size="7">Choum</text>
+          <text x="265" y="106" font-size="15" text-anchor="middle">🚂</text>
+        </g>
+
+        <!-- 2. Eye of the Sahara -->
+        <g class="region" id="region-richat" data-place="richat" onclick="openPlace('richat')" data-cat="nature">
+          <circle cx="305" cy="172" r="34" fill="rgba(180,130,70,0.1)" stroke="#b07840" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <circle cx="305" cy="172" r="23" fill="rgba(180,130,70,0.16)" stroke="#c08840" stroke-width="1.5"/>
+          <circle cx="305" cy="172" r="13" fill="rgba(192,98,42,0.2)" stroke="#c0622a" stroke-width="2"/>
+          <circle cx="305" cy="172" r="5" fill="#c0622a" opacity="0.85"/>
+          <circle cx="305" cy="172" r="36" fill="url(#eyeGlow)"/>
+          <text x="305" y="215" fill="#f0d080" font-size="8" font-weight="700" text-anchor="middle">Eye of Sahara</text>
+        </g>
+
+        <!-- 3. Banc d'Arguin -->
+        <g class="region" id="region-arguin" data-place="arguin" onclick="openPlace('arguin')" data-cat="nature">
+          <ellipse cx="88" cy="248" rx="18" ry="38" fill="#3a9080" opacity="0.38" stroke="#2a8070" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="88" y="253" fill="#90e0d0" font-size="7" text-anchor="middle" font-weight="700">Banc</text>
+          <text x="88" y="263" fill="#90e0d0" font-size="7" text-anchor="middle" font-weight="700">d'Arguin</text>
+          <text x="88" y="237" font-size="13" text-anchor="middle">🦩</text>
+        </g>
+
+        <!-- 4. Chinguetti -->
+        <g class="region" id="region-chinguetti" data-place="chinguetti" onclick="openPlace('chinguetti')" data-cat="historic">
+          <ellipse cx="285" cy="235" rx="21" ry="17" fill="rgba(192,98,42,0.2)" stroke="#e08040" stroke-width="1.8"/>
+          <text x="285" y="260" fill="#f0c070" font-size="8" font-weight="700" text-anchor="middle">Chinguetti</text>
+          <text x="285" y="236" font-size="14" text-anchor="middle">🕌</text>
+        </g>
+
+        <!-- 5. Oualata -->
+        <g class="region" id="region-oualata" data-place="oualata" onclick="openPlace('oualata')" data-cat="historic">
+          <ellipse cx="415" cy="308" rx="22" ry="16" fill="rgba(192,98,42,0.2)" stroke="#e08040" stroke-width="1.8"/>
+          <text x="415" y="332" fill="#f0c070" font-size="8" font-weight="700" text-anchor="middle">Oualata</text>
+          <text x="415" y="309" font-size="14" text-anchor="middle">📜</text>
+        </g>
+
+        <!-- 6. Atar -->
+        <g class="region" id="region-atar" data-place="atar" onclick="openPlace('atar')" data-cat="city">
+          <ellipse cx="235" cy="202" rx="19" ry="15" fill="rgba(158,139,110,0.22)" stroke="#c0a060" stroke-width="1.5"/>
+          <text x="235" y="225" fill="#e0c890" font-size="8" font-weight="700" text-anchor="middle">Atar</text>
+          <text x="235" y="203" font-size="14" text-anchor="middle">🏘️</text>
+        </g>
+
+        <!-- 7. Terjit Oasis -->
+        <g class="region" id="region-terjit" data-place="terjit" onclick="openPlace('terjit')" data-cat="nature">
+          <ellipse cx="210" cy="234" rx="15" ry="12" fill="rgba(80,140,60,0.28)" stroke="#70b050" stroke-width="1.8"/>
+          <text x="210" y="253" fill="#a0e080" font-size="7.5" font-weight="700" text-anchor="middle">Terjit</text>
+          <text x="210" y="234" font-size="13" text-anchor="middle">🌴</text>
+        </g>
+
+        <!-- 8. Tichit -->
+        <g class="region" id="region-tichit" data-place="tichit" onclick="openPlace('tichit')" data-cat="historic" style="cursor:pointer">
+          <ellipse cx="362" cy="262" rx="21" ry="16" fill="rgba(192,98,42,0.22)" stroke="#e08040" stroke-width="2"/>
+          <text x="362" y="286" fill="#f0c070" font-size="8" font-weight="700" text-anchor="middle">Tichit</text>
+          <text x="362" y="263" font-size="14" text-anchor="middle">🏛️</text>
+        </g>
+
+        <!-- 9. Nouakchott -->
+        <g class="region" id="region-nouakchott" data-place="nouakchott" onclick="openPlace('nouakchott')" data-cat="city">
+          <circle cx="100" cy="318" r="15" fill="rgba(158,139,110,0.28)" stroke="#c0a060" stroke-width="2"/>
+          <text x="100" y="341" fill="#e0c890" font-size="8" font-weight="700" text-anchor="middle">Nouakchott</text>
+          <text x="100" y="319" font-size="14" text-anchor="middle">🏙️</text>
+          <text x="114" y="308" font-size="9" fill="#e8c87a">★</text>
+        </g>
+
+        <!-- 10. Ben Amera Monolith -->
+        <g class="region" id="region-benamera" data-place="benamera" onclick="openPlace('benamera')" data-cat="nature">
+          <ellipse cx="388" cy="138" rx="16" ry="13" fill="rgba(140,100,50,0.22)" stroke="#c0a060" stroke-width="1.8"/>
+          <text x="388" y="158" fill="#e0c890" font-size="7.5" font-weight="700" text-anchor="middle">Ben Amera</text>
+          <text x="388" y="139" font-size="13" text-anchor="middle">🗿</text>
+        </g>
+
+        <!-- Country watermark -->
+        <text x="258" y="300" fill="rgba(255,220,120,0.05)" font-family="Amiri,serif" font-size="22" font-weight="700" text-anchor="middle" transform="rotate(-8,258,300)">MAURITANIA</text>
+
+        <!-- Compass -->
+        <g transform="translate(458,525)">
+          <circle r="18" fill="rgba(5,15,25,0.7)" stroke="rgba(232,200,122,0.5)" stroke-width="1.5"/>
+          <text y="-6" text-anchor="middle" font-size="9" fill="#e8c87a" font-weight="700">N</text>
+          <text y="14" text-anchor="middle" font-size="6.5" fill="#e8c87a">S</text>
+          <text x="-11" y="4" text-anchor="middle" font-size="6.5" fill="#e8c87a">W</text>
+          <text x="13" y="4" text-anchor="middle" font-size="6.5" fill="#e8c87a">E</text>
+          <polygon points="0,-13 2.5,-2 0,0 -2.5,-2" fill="#c0622a"/>
+          <polygon points="0,13 2.5,2 0,0 -2.5,2" fill="#6b5030"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Music bar -->
+  <div class="music-bar">
+    <div id="musicPulse" class="music-pulse" style="display:none"></div>
+    <button class="music-btn" id="musicBtn" onclick="toggleMusic()">🎵 Play Music</button>
+    <span class="music-info" id="musicLabel">—</span>
+  </div>
+
+  <!-- YouTube mini player (hidden until activated) -->
+  <div id="ytPlayer">
+    <!-- iframe injected by JS to avoid autoload -->
+  </div>
+
+</div>
+
+<!-- iOS tap-to-start overlay -->
+<div id="musicOverlay" onclick="handleOverlayTap()">
+  <div class="overlay-emoji">🇲🇷</div>
+  <h2>Mauritania Explorer</h2>
+  <p>Tap to enter and start the music</p>
+  <div class="tap-btn">Tap to Begin</div>
+</div>
+
+<!-- Backdrop -->
+<div class="panel-backdrop" id="backdrop" onclick="closePanel()"></div>
+
+<!-- Info Panel -->
+<div class="info-panel" id="infoPanel">
+  <div style="position:relative">
+    <div id="panelHero" class="panel-hero-ph">🌍</div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="panel-cat" id="panelCat"></div>
+    <div class="panel-title" id="panelTitle"></div>
+    <div class="panel-sub" id="panelSub"></div>
+    <div class="panel-desc" id="panelDesc"></div>
+    <div class="panel-facts" id="panelFacts"></div>
+    <div class="panel-links" id="panelLinks"></div>
+  </div>
+</div>
+
+<script>
+const PLACES={
+  train:{name:"Iron Ore Train",subtitle:"Zouerat → Choum → Nouadhibou",category:"transport",categoryColor:"#4a9db5",emoji:"🚂",
+    desc:"One of the longest and heaviest trains in the world — up to 3 km long. It hauls iron ore across the Sahara from the mines of Zouerat to the port of Nouadhibou, a 700 km journey taking 12–20 hours. Adventure travelers ride the open ore cars for free, sleeping under stars with the vast desert rolling by.",
+    facts:[{label:"Length",value:"Up to 3 km"},{label:"Route",value:"700 km"},{label:"Cargo",value:"Iron Ore"},{label:"Journey",value:"~16 hours"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/mauritaniatrain/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=mauritania+iron+ore+train",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Mauritania_Railway",style:"link-wiki"},{label:"Google",icon:"🔍",url:"https://www.google.com/search?q=mauritania+iron+ore+train",style:"link-google"}]},
+  richat:{name:"Eye of the Sahara",subtitle:"Richat Structure — Adrar Region",category:"nature",categoryColor:"#6a8c4f",emoji:"👁️",
+    desc:"Known as the Richat Structure, this stunning geological dome spans 50 km in diameter. Once thought to be a meteor crater, scientists now believe it formed by volcanic uplift and erosion over hundreds of millions of years. Visible from space, it is one of Earth's most iconic natural landmarks.",
+    facts:[{label:"Diameter",value:"50 km"},{label:"Type",value:"Geological dome"},{label:"Age",value:"~100M years"},{label:"Visible",value:"From space"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/eyeofthesahara/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=richat+structure+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Richat_Structure",style:"link-wiki"},{label:"NASA imagery",icon:"🛸",url:"https://earthobservatory.nasa.gov/images/36852/richat-structure-mauritania",style:"link-google"}]},
+  arguin:{name:"Banc d'Arguin",subtitle:"National Park — Atlantic Coast",category:"nature",categoryColor:"#6a8c4f",emoji:"🦩",
+    desc:"A UNESCO World Heritage site where the Sahara meets the Atlantic. Home to over 2 million migratory birds annually. The Imraguen people have fished these warm shallow waters for centuries using ancient methods — driving fish into nets with sail boats.",
+    facts:[{label:"Area",value:"12,000 km²"},{label:"Status",value:"UNESCO Heritage"},{label:"Birds",value:"2M+ migratory"},{label:"People",value:"Imraguen tribe"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/bancdarguin/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=banc+d+arguin+mauritania",style:"link-youtube"},{label:"UNESCO",icon:"📖",url:"https://whc.unesco.org/en/list/506",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Banc+d'Arguin",style:"link-maps"}]},
+  chinguetti:{name:"Chinguetti",subtitle:"The 7th Holy City of Islam",category:"historic",categoryColor:"#c0622a",emoji:"🕌",
+    desc:"Founded in the 13th century as a gathering point for Saharan caravans heading to Mecca. Its ancient libraries hold thousands of medieval manuscripts on astronomy, mathematics and theology. Today it is slowly being reclaimed by encroaching desert dunes — a UNESCO World Heritage site.",
+    facts:[{label:"Founded",value:"13th century"},{label:"Status",value:"UNESCO Heritage"},{label:"Manuscripts",value:"~1,300 preserved"},{label:"Known as",value:"7th Holy City"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/chinguetti/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=chinguetti+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Chinguetti",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Chinguetti+Mauritania",style:"link-maps"}]},
+  oualata:{name:"Oualata",subtitle:"Ancient Caravan City — UNESCO",category:"historic",categoryColor:"#c0622a",emoji:"📜",
+    desc:"One of the oldest cities in Mauritania — a major trans-Saharan trade terminus. Its red-painted houses decorated with intricate geometric patterns are unique in the world. Holds precious medieval manuscripts alongside Chinguetti and Tichit as UNESCO World Heritage sites.",
+    facts:[{label:"Founded",value:"11th century"},{label:"Status",value:"UNESCO Heritage"},{label:"Known for",value:"Manuscripts & art"},{label:"Location",value:"Eastern Mauritania"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/oualata/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=oualata+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Oualata",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Oualata+Mauritania",style:"link-maps"}]},
+  atar:{name:"Atar",subtitle:"Gateway to the Adrar",category:"city",categoryColor:"#9e8b6e",emoji:"🏘️",
+    desc:"The main city of the Adrar region and gateway to Mauritania's most stunning landscapes — ancient ksour, palm groves and dramatic desert plateaux. A base for trekking, camel riding and visiting the nearby Terjit oasis. The old market and traditional mud-brick architecture are a living snapshot of Saharan life.",
+    facts:[{label:"Altitude",value:"~260 m"},{label:"Region",value:"Adrar"},{label:"Known for",value:"Desert gateway"},{label:"Nearby",value:"Terjit oasis"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/atar_mauritania/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=atar+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Atar,_Mauritania",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Atar+Mauritania",style:"link-maps"}]},
+  terjit:{name:"Terjit Oasis",subtitle:"Hidden Jewel of the Sahara",category:"nature",categoryColor:"#6a8c4f",emoji:"🌴",
+    desc:"Mauritania's most magical spot — a narrow canyon with palm trees and crystal-clear natural pools fed by mountain springs, hidden in the heart of the Sahara. The contrast between scorching desert above and cool green oasis below is breathtaking. Accessible by 4x4 from Atar, about 45 km away.",
+    facts:[{label:"From Atar",value:"45 km (4x4)"},{label:"Type",value:"Spring oasis"},{label:"Terrain",value:"Canyon palmeraie"},{label:"Best time",value:"Nov – Feb"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/terjit/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=terjit+oasis+mauritania",style:"link-youtube"},{label:"Google",icon:"🔍",url:"https://www.google.com/search?q=terjit+oasis+mauritania",style:"link-google"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Terjit+Oasis+Mauritania",style:"link-maps"}]},
+  tichit:{name:"Tichit",subtitle:"Ancient Neolithic Settlement",category:"historic",categoryColor:"#c0622a",emoji:"🏛️",
+    desc:"One of the oldest known cities in West Africa, Tichit was a thriving urban centre as far back as 1500 BCE. The region contains remarkable Neolithic stone monuments and ancient granaries. Today a quiet UNESCO World Heritage village — crumbling earth houses and a lone mosque stand against an ocean of golden desert.",
+    facts:[{label:"Founded",value:"~1500 BCE"},{label:"Status",value:"UNESCO Heritage"},{label:"Known for",value:"Neolithic ruins"},{label:"Region",value:"Tagant"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/tichit/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=tichit+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Tichit",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Tichit+Mauritania",style:"link-maps"}]},
+  benamera:{name:"Ben Amera",subtitle:"World's Second Largest Monolith",category:"nature",categoryColor:"#9e8b6e",emoji:"🗿",
+    desc:"Rising 633 metres from the flat Saharan plain, Ben Amera is the second largest monolith on Earth after Uluru in Australia. This colossal granite inselberg in northwestern Mauritania towers over a surreal lunar landscape near the town of Bir Moghrein. Almost unknown to the outside world, it is one of Africa's most spectacular and least-visited natural wonders.",
+    facts:[{label:"Height",value:"633 m"},{label:"Rank",value:"2nd largest monolith"},{label:"Type",value:"Granite inselberg"},{label:"Region",value:"Tiris Zemmour"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/benamera/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=ben+amera+mauritania+monolith",style:"link-youtube"},{label:"Google",icon:"🔍",url:"https://www.google.com/search?q=ben+amera+monolith+mauritania",style:"link-google"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Ben+Amera+Mauritania",style:"link-maps"}]},
+  nouakchott:{name:"Nouakchott",subtitle:"Capital City ★",category:"city",categoryColor:"#9e8b6e",emoji:"🏙️",
+    desc:"One of the youngest capital cities in the world — barely a village when Mauritania gained independence in 1960. Today home to over 1 million people. The famous Fish Market at sunset is a vibrant spectacle where hundreds of painted pirogues land their catch on the beach.",
+    facts:[{label:"Population",value:"~1.2 million"},{label:"Founded",value:"1960"},{label:"Elevation",value:"5 m (sea level)"},{label:"Known for",value:"Fish market"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/nouakchott/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=nouakchott+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Nouakchott",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Nouakchott+Mauritania",style:"link-maps"}]}
+};
+
+const CAT={
+  nature:{bg:'rgba(80,130,60,0.2)',text:'#a0e080',border:'#6a8c4f'},
+  historic:{bg:'rgba(180,80,30,0.2)',text:'#f0a060',border:'#c0622a'},
+  transport:{bg:'rgba(50,120,160,0.2)',text:'#80c8e8',border:'#4a9db5'},
+  city:{bg:'rgba(140,120,80,0.2)',text:'#d0b880',border:'#9e8b6e'},
+};
+
+function openPlace(id){
+  const p=PLACES[id]; if(!p) return;
+  const c=CAT[p.category];
+  document.getElementById('panelHero').innerHTML=`<div class="panel-hero-ph" style="background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(0,0,0,0.2)),linear-gradient(135deg,${p.categoryColor}33,${p.categoryColor}55)">${p.emoji}</div>`;
+  const badge=document.getElementById('panelCat');
+  badge.textContent=p.category.charAt(0).toUpperCase()+p.category.slice(1);
+  badge.style.cssText=`background:${c.bg};color:${c.text};border:1.5px solid ${c.border}`;
+  document.getElementById('panelTitle').textContent=p.name;
+  document.getElementById('panelSub').textContent=p.subtitle;
+  document.getElementById('panelDesc').textContent=p.desc;
+  document.getElementById('panelFacts').innerHTML=p.facts.map(f=>`<div class="fact-card"><div class="fact-label">${f.label}</div><div class="fact-value">${f.value}</div></div>`).join('');
+  document.getElementById('panelLinks').innerHTML=p.links.map(l=>`<a href="${l.url}" target="_blank" rel="noopener" class="link-btn ${l.style}"><span>${l.icon}</span>${l.label}</a>`).join('');
+  document.getElementById('infoPanel').classList.add('open');
+  document.getElementById('backdrop').classList.add('open');
+}
+
+function closePanel(){
+  document.getElementById('infoPanel').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+}
+
+function filterCat(el,cat){
+  document.querySelectorAll('.legend-item').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.region').forEach(r=>{
+    const c=r.getAttribute('data-cat');
+    const show=cat==='all'||c===cat;
+    r.style.opacity=show?'1':'0.12';
+    r.style.pointerEvents=show?'all':'none';
+  });
+}
+
+// ── Music ──
+const SONGS = [
+  { id: 'y5VoQps0Y3w', title: 'El Belloutou' },
+  { id: 'z2Bf5In027A', title: 'Tikifit' },
+  { id: 'wvvlkVpS2Vo', title: 'Tikifit (DJ Dahker)', start: 205 },
+];
+const picked = SONGS[Math.floor(Math.random() * SONGS.length)];
+const YT_ID = picked.id;
+document.getElementById('musicLabel').textContent = picked.title;
+
+let musicOn = false;
+const btn = document.getElementById('musicBtn');
+const pulse = document.getElementById('musicPulse');
+const ytDiv = document.getElementById('ytPlayer');
+const overlay = document.getElementById('musicOverlay');
+
+function startMusic(){
+  const start = picked.start ? `&start=${picked.start}` : '';
+  ytDiv.innerHTML = `<iframe
+    src="https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}&controls=1&rel=0&modestbranding=1${start}"
+    allow="autoplay; encrypted-media" allowfullscreen>
+  </iframe>`;
+  ytDiv.style.display = 'block';
+  musicOn = true;
+  btn.innerHTML = '⏸ &nbsp;Pause';
+  pulse.style.display = 'block';
+}
+
+function handleOverlayTap(){
+  // iOS requires a user gesture — this tap unlocks audio
+  overlay.style.display = 'none';
+  startMusic();
+}
+
+function toggleMusic(){
+  if(!musicOn){
+    startMusic();
+  } else {
+    ytDiv.innerHTML = '';
+    ytDiv.style.display = 'none';
+    musicOn = false;
+    btn.innerHTML = '🎵 &nbsp;Play';
+    pulse.style.display = 'none';
+  }
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
+</script>
+</body>
+</html>
