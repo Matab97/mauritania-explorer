@@ -107,8 +107,8 @@
       .music-btn{font-size:0.7rem;padding:4px 12px;}
       .music-info{font-size:0.62rem;max-width:130px;}
 
-      #ytPlayer{width:160px;height:92px;bottom:50px;right:8px;}
-      #ytPlayer iframe{width:160px;height:92px;}
+      /* Keep 1x1 on mobile too */
+      #ytPlayer{width:1px;height:1px;bottom:0;right:0;}
     }
 
     /* ── Music bar ── */
@@ -133,16 +133,17 @@
     @keyframes mpulse{0%,100%{opacity:0.4;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
 
     /* YouTube player — visible small corner player */
+    /* YouTube player — 1x1px in corner, iOS sees it as "visible" so audio plays */
     #ytPlayer{
-      position:fixed;bottom:56px;right:12px;z-index:30;
-      width:200px;height:115px;
-      border-radius:10px;overflow:hidden;
-      box-shadow:0 4px 20px rgba(0,0,0,0.7);
-      border:1px solid rgba(232,200,122,0.3);
-      display:none;
-      transition:opacity 0.3s;
+      position:fixed;
+      bottom:0;right:0;
+      width:1px;height:1px;
+      overflow:hidden;
+      opacity:0.01; /* near-invisible but not hidden — iOS allows audio */
+      z-index:1;
+      display:block;
     }
-    #ytPlayer iframe{width:200px;height:115px;border:none;display:block;}
+    #ytPlayer iframe{width:1px;height:1px;border:none;display:block;}
 
     /* iOS tap-to-start overlay */
     #musicOverlay{
@@ -557,7 +558,7 @@ const overlay = document.getElementById('musicOverlay');
 function startMusic(){
   const start = picked.start ? `&start=${picked.start}` : '';
   ytDiv.innerHTML = `<iframe
-    src="https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}&controls=1&rel=0&modestbranding=1${start}"
+    src="https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}&controls=0&rel=0&modestbranding=1${start}"
     allow="autoplay; encrypted-media" allowfullscreen>
   </iframe>`;
   ytDiv.style.display = 'block';
@@ -576,8 +577,7 @@ function toggleMusic(){
   if(!musicOn){
     startMusic();
   } else {
-    ytDiv.innerHTML = '';
-    ytDiv.style.display = 'none';
+    ytDiv.innerHTML = ''; /* destroying iframe stops audio */
     musicOn = false;
     btn.innerHTML = '🎵 &nbsp;Play';
     pulse.style.display = 'none';
