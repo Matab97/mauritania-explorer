@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mauritania Explorer</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet"/>
   <style>
     :root{
       --sand:#e8d5a3;--sand-dark:#c9b07a;--sand-light:#f5ead0;
@@ -12,102 +14,126 @@
       --ink:#1a1208;--stone:#9e8b6e;--stone-dark:#6b5d42;--gold:#e8c87a;
     }
     *{margin:0;padding:0;box-sizing:border-box;}
-    html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',sans-serif;}
+    html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:#1a1208;}
 
-    /* ── Full-screen background: nomadic man ── */
-    #bg{
-      position:fixed;inset:0;z-index:0;
-      background:
-        url('https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=1600&q=85')
-        center center / cover no-repeat;
+    /* Sand particle canvas — fixed behind everything */
+    #sandCanvas{position:fixed;inset:0;z-index:2;pointer-events:none;}
+
+    /* Heat shimmer overlay */
+    #shimmer{
+      position:fixed;inset:0;pointer-events:none;z-index:3;
+      background:linear-gradient(180deg,
+        rgba(232,200,122,0) 0%,
+        rgba(232,200,122,0.04) 40%,
+        rgba(232,200,122,0.07) 50%,
+        rgba(232,200,122,0.04) 60%,
+        rgba(232,200,122,0) 100%);
+      animation:shimmer 5s ease-in-out infinite;
     }
-    /* Dark gradient overlay — heavier at top/bottom, lighter in middle */
-    #bgOverlay{
-      position:fixed;inset:0;z-index:1;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,6,2,0.45) 0%, rgba(10,6,2,0.78) 100%);
+    @keyframes shimmer{
+      0%,100%{transform:scaleY(1) translateY(0);opacity:0.5;}
+      30%{transform:scaleY(1.003) translateY(-1.5px);opacity:0.85;}
+      70%{transform:scaleY(0.998) translateY(1px);opacity:0.35;}
     }
 
-    #app{position:relative;z-index:2;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+    #app{position:relative;z-index:4;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
 
     /* ── Header ── */
-    header{flex-shrink:0;text-align:center;padding:12px 16px 6px;}
-    header h1{font-family:'Amiri',serif;font-size:clamp(1.5rem,3.5vw,2.4rem);color:var(--gold);
-      text-shadow:0 2px 20px rgba(0,0,0,0.9),0 0 40px rgba(192,98,42,0.4);}
-    header p{font-size:0.72rem;color:#b09060;margin-top:2px;letter-spacing:0.5px;}
+    header{flex-shrink:0;text-align:center;padding:10px 16px 5px;position:relative;}
+    .logo-svg{display:block;margin:0 auto 2px;}
+    header p{font-size:0.7rem;color:#b09060;margin-top:1px;letter-spacing:0.5px;}
 
-    .legend{display:flex;justify-content:center;flex-wrap:wrap;gap:5px;padding:5px 12px;}
+    .legend{display:flex;justify-content:center;flex-wrap:wrap;gap:5px;padding:4px 12px;}
     .legend-item{display:flex;align-items:center;gap:5px;font-size:0.7rem;color:#c8a870;cursor:pointer;
-      padding:3px 9px;border-radius:99px;background:rgba(0,0,0,0.4);border:1.5px solid rgba(255,255,255,0.1);
-      transition:all 0.2s;backdrop-filter:blur(4px);}
+      padding:3px 9px;border-radius:99px;background:rgba(0,0,0,0.55);border:1.5px solid rgba(255,255,255,0.1);
+      transition:all 0.2s;backdrop-filter:blur(6px);}
     .legend-item:hover,.legend-item.active{border-color:#c0622a;background:rgba(192,98,42,0.35);color:var(--gold);}
     .legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 
     /* ── Map area ── */
-    .map-area{
-      flex:1;display:flex;flex-direction:row;gap:10px;
-      padding:5px 10px 5px;min-height:0;align-items:stretch;
-    }
+    .map-area{flex:1;display:flex;min-height:0;position:relative;}
+    #map{width:100%;height:100%;}
 
-    /* World inset */
-    .world-inset{
-      flex-shrink:0;width:145px;
-      background:rgba(5,15,25,0.85);
-      border:1.5px solid rgba(232,200,122,0.4);border-radius:12px;
-      display:flex;flex-direction:column;align-items:center;
-      padding:10px 8px;gap:5px;
-      backdrop-filter:blur(8px);
-      box-shadow:0 4px 20px rgba(0,0,0,0.6);
+    /* MapLibre attribution — styled to blend */
+    .maplibregl-ctrl-attrib{
+      background:rgba(26,18,8,0.7)!important;
+      color:#6b5d42!important;
+      font-size:9px!important;
+      border-radius:6px 0 0 0!important;
     }
-    .world-inset-title{font-size:0.65rem;color:var(--gold);font-family:'Amiri',serif;letter-spacing:1px;text-transform:uppercase;}
-    #worldSVG{width:126px;height:auto;}
-    .world-inset-sub{font-size:0.6rem;color:#8a7a5a;text-align:center;line-height:1.4;}
+    .maplibregl-ctrl-attrib a{color:#9e8b6e!important;}
+    .maplibregl-ctrl-bottom-right{bottom:36px!important;}
 
-    /* Main map */
-    .map-frame{
-      flex:1;min-width:0;
-      border-radius:18px;
-      border:2px solid rgba(200,160,80,0.4);
-      box-shadow:0 8px 40px rgba(0,0,0,0.6),inset 0 0 0 1px rgba(255,255,255,0.05);
-      position:relative;overflow:hidden;
+    /* ── Markers ── */
+    .mb-marker{
+      cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
+      animation:markerDrop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+      position:relative;
     }
-    #mapSVG{width:100%;height:100%;display:block;}
+    @keyframes markerDrop{
+      from{transform:translateY(-20px) scale(0.3);opacity:0;}
+      to{transform:translateY(0) scale(1);opacity:1;}
+    }
+    .mb-icon{
+      width:38px;height:38px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;
+      border:2px solid rgba(255,255,255,0.25);
+      box-shadow:0 3px 14px rgba(0,0,0,0.6);
+      transition:transform 0.15s,box-shadow 0.15s;
+      background:rgba(26,18,8,0.85);
+      backdrop-filter:blur(4px);
+    }
+    .mb-marker:hover .mb-icon{transform:scale(1.18);box-shadow:0 5px 20px rgba(0,0,0,0.8);}
+    .mb-label{
+      font-size:9px;font-weight:600;letter-spacing:0.3px;
+      color:#e8d5a3;text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.9);
+      white-space:nowrap;pointer-events:none;
+    }
+    /* Category border colors */
+    .mb-marker[data-cat="nature"] .mb-icon{border-color:#6a8c4f;}
+    .mb-marker[data-cat="historic"] .mb-icon{border-color:#c0622a;}
+    .mb-marker[data-cat="transport"] .mb-icon{border-color:#4a9db5;}
+    .mb-marker[data-cat="city"] .mb-icon{border-color:#9e8b6e;}
+
+    /* Pulsing ring for Nouakchott (capital) */
+    .mb-marker[data-id="nouakchott"] .mb-icon::after{
+      content:'';position:absolute;inset:-6px;border-radius:50%;
+      border:1.5px solid rgba(158,139,110,0.5);
+      animation:ringPulse 2s ease-in-out infinite;
+    }
+    @keyframes ringPulse{0%,100%{transform:scale(1);opacity:0.6;}50%{transform:scale(1.2);opacity:0.2;}}
+
+    /* Click ripple */
+    .mb-marker.clicked .mb-icon::before{
+      content:'';position:absolute;inset:-4px;border-radius:50%;
+      background:rgba(232,200,122,0.35);
+      animation:clickRipple 0.55s ease-out forwards;
+    }
+    @keyframes clickRipple{from{transform:scale(1);opacity:0.9;}to{transform:scale(3.2);opacity:0;}}
+
+    /* Train line marker */
+    .mb-train-dot{
+      width:12px;height:12px;border-radius:50%;
+      background:#4a9db5;border:2px solid rgba(255,255,255,0.6);
+      box-shadow:0 2px 8px rgba(0,0,0,0.5);
+      cursor:pointer;
+      transition:transform 0.15s;
+    }
+    .mb-train-dot:hover{transform:scale(1.3);}
 
     /* ── Phone layout ── */
     @media(max-width:640px){
-      /* Fix iOS 100vh black bar issue */
       #app{height:100dvh;}
-
-      header{padding:6px 12px 2px;}
-      header h1{font-size:1.2rem;}
+      header{padding:5px 10px 2px;}
+      .logo-svg{height:36px!important;}
       header p{display:none;}
       .legend{gap:3px;padding:2px 8px;}
       .legend-item{font-size:0.58rem;padding:2px 6px;}
       .legend-dot{width:7px;height:7px;}
-
-      .map-area{
-        flex-direction:column;
-        padding:3px 8px 3px;
-        gap:5px;
-      }
-
-      /* World inset — compact horizontal strip */
-      .world-inset{
-        width:100%;flex-direction:row;align-items:center;flex-shrink:0;
-        padding:5px 10px;gap:8px;border-radius:10px;
-      }
-      .world-inset-title{font-size:0.56rem;white-space:nowrap;}
-      #worldSVG{width:75px;height:52px;flex-shrink:0;}
-      .world-inset-sub{font-size:0.54rem;text-align:left;}
-
-      /* Map fills ALL remaining space */
-      .map-frame{border-radius:12px;flex:1;min-height:0;}
-
       .music-bar{padding:3px 10px 6px;gap:6px;}
       .music-btn{font-size:0.7rem;padding:4px 12px;}
       .music-info{font-size:0.62rem;max-width:130px;}
-
-      /* Keep 1x1 on mobile too */
       #ytPlayer{width:1px;height:1px;bottom:0;right:0;}
     }
 
@@ -125,32 +151,25 @@
     .music-btn:hover{background:rgba(192,98,42,0.65);transform:scale(1.03);}
     .music-info{
       font-size:0.78rem;color:var(--gold);font-style:italic;
-      background:rgba(0,0,0,0.35);padding:4px 12px;border-radius:99px;
-      border:1px solid rgba(232,200,122,0.2);backdrop-filter:blur(4px);
+      background:rgba(0,0,0,0.45);padding:4px 12px;border-radius:99px;
+      border:1px solid rgba(232,200,122,0.2);backdrop-filter:blur(6px);
       max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .music-pulse{width:8px;height:8px;border-radius:50%;background:#c0622a;flex-shrink:0;animation:mpulse 1.2s ease-in-out infinite;}
     @keyframes mpulse{0%,100%{opacity:0.4;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
 
-    /* YouTube player — visible small corner player */
-    /* YouTube player — 1x1px in corner, iOS sees it as "visible" so audio plays */
     #ytPlayer{
-      position:fixed;
-      bottom:0;right:0;
-      width:1px;height:1px;
-      overflow:hidden;
-      opacity:0.01; /* near-invisible but not hidden — iOS allows audio */
-      z-index:1;
-      display:block;
+      position:fixed;bottom:0;right:0;width:1px;height:1px;
+      overflow:hidden;opacity:0.01;z-index:1;display:block;
     }
     #ytPlayer iframe{width:1px;height:1px;border:none;display:block;}
 
     /* iOS tap-to-start overlay */
     #musicOverlay{
       position:fixed;inset:0;z-index:60;
-      background:rgba(10,6,2,0.82);
+      background:rgba(10,6,2,0.85);
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
-      backdrop-filter:blur(6px);cursor:pointer;
+      backdrop-filter:blur(8px);cursor:pointer;
     }
     #musicOverlay .overlay-emoji{font-size:3rem;}
     #musicOverlay h2{font-family:'Amiri',serif;color:var(--gold);font-size:1.5rem;text-align:center;}
@@ -161,12 +180,6 @@
       margin-top:8px;animation:pulse-btn 1.8s ease-in-out infinite;
     }
     @keyframes pulse-btn{0%,100%{box-shadow:0 0 0 0 rgba(192,98,42,0.4);}50%{box-shadow:0 0 0 12px rgba(192,98,42,0);}}
-
-    /* ── SVG Regions ── */
-    .region{cursor:pointer;transition:filter 0.2s;}
-    .region:hover{filter:brightness(1.25) drop-shadow(0 0 8px rgba(232,200,122,0.65));}
-    .region.pulse{animation:pulse-r 2s ease-in-out infinite;}
-    @keyframes pulse-r{0%,100%{filter:brightness(1) drop-shadow(0 0 3px rgba(192,98,42,0.3));}50%{filter:brightness(1.2) drop-shadow(0 0 12px rgba(192,98,42,0.8));}}
 
     /* ── Info Panel ── */
     .panel-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:40;backdrop-filter:blur(3px);}
@@ -205,17 +218,46 @@
     .link-wiki{background:rgba(255,255,255,0.9);color:#1a1208;border-color:rgba(200,160,80,0.4);}
     .link-google{background:#4285f4;color:white;}
     .link-maps{background:#34a853;color:white;}
+
+    /* Terrain mode indicator */
+    #terrainBadge{
+      position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:rgba(192,98,42,0.7);color:var(--gold);
+      padding:4px 12px;border-radius:99px;font-size:0.65rem;font-weight:600;letter-spacing:1px;
+      z-index:55;pointer-events:none;opacity:0;
+      transition:opacity 0.4s;
+    }
+    #terrainBadge.show{opacity:1;}
   </style>
 </head>
 <body>
 <a href="https://abbad.app" style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(192,98,42,0.35);border:1px solid rgba(192,98,42,0.5);color:#e8c87a;padding:3px 10px;border-radius:99px;font-size:0.62rem;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">← home</a>
-<div id="bg"></div>
-<div id="bgOverlay"></div>
-<div id="app">
 
+<!-- Sand particle layer -->
+<canvas id="sandCanvas"></canvas>
+
+<!-- Heat shimmer -->
+<div id="shimmer"></div>
+
+<div id="app">
   <header>
-    <h1>🇲🇷 Mauritania Explorer</h1>
-    <p>Click on any highlighted area to discover it</p>
+    <!-- Logo: dune/wave motif — reads as both Saharan dunes and Atlantic waves -->
+    <svg class="logo-svg" height="48" viewBox="0 0 240 54" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6,40 Q16,22 28,32 Q40,42 52,24 Q60,12 72,28"
+            stroke="#c0622a" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+      <path d="M6,46 Q18,30 32,38 Q44,46 56,30 Q64,20 78,34"
+            stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.55"/>
+      <text x="90" y="26" font-family="Amiri,serif" font-size="20" fill="#e8c87a" font-weight="700">MAURITANIA</text>
+      <text x="91" y="41" font-family="Inter,sans-serif" font-size="8.5" fill="#9e8b6e" letter-spacing="3.5">EXPLORER</text>
+      <defs>
+        <linearGradient id="lgLine" x1="0" x2="1">
+          <stop offset="0%" stop-color="#c0622a"/>
+          <stop offset="100%" stop-color="#3a8fa8" stop-opacity="0.4"/>
+        </linearGradient>
+      </defs>
+      <line x1="90" y1="46" x2="240" y2="46" stroke="url(#lgLine)" stroke-width="1"/>
+    </svg>
+    <p>Click on any location to discover it</p>
     <div class="legend">
       <div class="legend-item active" onclick="filterCat(this,'all')"><div class="legend-dot" style="background:#888"></div>All</div>
       <div class="legend-item" onclick="filterCat(this,'nature')"><div class="legend-dot" style="background:#6a8c4f"></div>Nature</div>
@@ -226,208 +268,16 @@
   </header>
 
   <div class="map-area">
-
-    <!-- World inset — clear dark panel -->
-    <div class="world-inset">
-      <div class="world-inset-title">📍 Location</div>
-      <svg id="worldSVG" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
-        <rect width="160" height="100" fill="#0a1824" rx="6"/>
-        <!-- Grid lines -->
-        <line x1="0" y1="50" x2="160" y2="50" stroke="rgba(232,200,122,0.15)" stroke-width="0.6" stroke-dasharray="3 3"/>
-        <line x1="80" y1="0" x2="80" y2="100" stroke="rgba(232,200,122,0.08)" stroke-width="0.6"/>
-        <!-- Americas -->
-        <path d="M 18,12 Q 30,8 38,18 L 40,38 Q 37,54 30,65 Q 22,73 16,68 Q 9,58 8,42 Q 7,26 14,16 Z" fill="#2a2018" stroke="#3a3020" stroke-width="0.8" opacity="0.8"/>
-        <!-- South America -->
-        <path d="M 30,70 Q 40,67 46,74 L 47,88 Q 44,96 37,96 Q 30,94 27,85 Q 24,76 28,72 Z" fill="#2a2018" stroke="#3a3020" stroke-width="0.7" opacity="0.7"/>
-        <!-- Europe -->
-        <path d="M 72,6 Q 86,4 93,12 L 94,22 Q 86,25 76,24 Q 68,20 68,14 Z" fill="#3a3020" stroke="#5a4a28" stroke-width="0.8"/>
-        <!-- Africa — clean recognizable shape -->
-        <path d="M 68,24 Q 84,20 96,26 L 100,40 Q 103,55 100,68 Q 96,82 86,90 Q 77,96 68,93 Q 58,89 53,77 Q 48,64 49,50 Q 49,36 56,28 Z" fill="#5a4520" stroke="#7a6030" stroke-width="1.2"/>
-        <!-- Mauritania highlight — north-west Africa -->
-        <path d="M 55,28 Q 68,22 82,27 L 85,42 Q 74,48 60,47 Q 50,44 49,36 Z" fill="#c0622a" opacity="0.9" stroke="#e8c87a" stroke-width="1"/>
-        <!-- Pin on Mauritania -->
-        <circle cx="68" cy="37" r="3.5" fill="#e8c87a"/>
-        <circle cx="68" cy="37" r="2" fill="#c0622a"/>
-        <!-- Label -->
-        <text x="90" y="36" fill="#e8c87a" font-size="6" font-weight="700">MR</text>
-        <!-- Middle East / Asia -->
-        <path d="M 98,12 Q 130,8 148,18 L 150,32 Q 136,38 112,36 Q 96,32 94,22 Z" fill="#2a2018" stroke="#3a3020" stroke-width="0.8" opacity="0.7"/>
-        <!-- SE Asia islands -->
-        <ellipse cx="136" cy="55" rx="12" ry="7" fill="#2a2018" stroke="#3a3020" stroke-width="0.7" opacity="0.6"/>
-        <!-- Equator label -->
-        <text x="4" y="53" fill="rgba(232,200,122,0.35)" font-size="4.5" font-style="italic">Equator</text>
-      </svg>
-      <div class="world-inset-sub">West Africa<br/>1,030,700 km²</div>
-    </div>
-
-    <!-- Main map -->
-    <div class="map-frame">
-      <svg id="mapSVG" viewBox="0 0 500 560" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#3a8fa8"/><stop offset="100%" style="stop-color:#2a7090"/>
-          </linearGradient>
-          <linearGradient id="sandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#d4b07a"/><stop offset="100%" style="stop-color:#b8904a"/>
-          </linearGradient>
-          <linearGradient id="sahGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:#c89858"/><stop offset="100%" style="stop-color:#a87838"/>
-          </linearGradient>
-          <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" style="stop-color:#d4a96a;stop-opacity:0.8"/>
-            <stop offset="100%" style="stop-color:#b8884a;stop-opacity:0"/>
-          </radialGradient>
-          <pattern id="waterLines" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(15)">
-            <line x1="0" y1="10" x2="20" y2="10" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-          </pattern>
-          <filter id="softShadow"><feDropShadow dx="2" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.3)"/></filter>
-        </defs>
-
-        <!-- Ocean -->
-        <rect x="0" y="0" width="500" height="560" fill="url(#oceanGrad)"/>
-        <rect x="0" y="0" width="500" height="560" fill="url(#waterLines)"/>
-        <text x="35" y="285" fill="rgba(255,255,255,0.35)" font-size="8" font-style="italic" transform="rotate(-90,35,285)">ATLANTIC OCEAN</text>
-
-        <!-- Mauritania landmass -->
-        <path d="M 125,28 L 475,28 L 475,295 Q 455,330 435,365 Q 415,395 390,415 Q 360,432 328,442 Q 295,450 260,448 Q 225,444 195,432 Q 165,418 145,398 Q 120,372 108,342 Q 95,308 98,278 L 95,185 Q 98,130 110,85 Q 118,55 125,28 Z"
-          fill="url(#sandGrad)" stroke="#906830" stroke-width="2.5" filter="url(#softShadow)"/>
-
-        <!-- Northern Sahara overlay -->
-        <path d="M 125,28 L 475,28 L 475,250 Q 360,235 220,245 Q 155,242 98,248 L 98,130 Q 110,75 125,28 Z"
-          fill="url(#sahGrad)" opacity="0.4"/>
-
-        <!-- Dune shapes -->
-        <ellipse cx="200" cy="90" rx="55" ry="16" fill="rgba(255,255,255,0.04)" transform="rotate(-8,200,90)"/>
-        <ellipse cx="340" cy="72" rx="75" ry="18" fill="rgba(255,255,255,0.04)" transform="rotate(4,340,72)"/>
-        <ellipse cx="420" cy="175" rx="50" ry="14" fill="rgba(255,255,255,0.04)" transform="rotate(-4,420,175)"/>
-
-        <!-- Sahel strip -->
-        <path d="M 98,348 Q 130,338 170,336 Q 230,332 290,336 Q 348,338 398,326 Q 425,318 435,312 L 435,365 Q 415,395 390,415 Q 355,432 318,442 Q 275,450 230,447 Q 190,440 158,425 Q 128,408 108,382 Q 98,365 98,348 Z"
-          fill="#7a9058" opacity="0.28"/>
-
-        <!-- Senegal River -->
-        <path d="M 100,375 Q 130,385 165,390 Q 215,396 265,393 Q 310,390 358,382 Q 390,374 415,362"
-          fill="none" stroke="#5ab3cc" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
-        <text x="185" y="406" fill="#3a8fa8" font-size="7" font-style="italic" opacity="0.7">Senegal River</text>
-
-        <!-- Banc d'Arguin coastal tint -->
-        <path d="M 98,210 Q 92,235 92,270 Q 92,295 95,318 L 80,318 L 78,210 Z"
-          fill="#3a9080" opacity="0.25"/>
-
-        <!-- ═══════ CLICKABLE REGIONS ═══════ -->
-
-        <!-- 1. Iron Ore Train -->
-        <g class="region pulse" id="region-train" data-place="train" onclick="openPlace('train')" data-cat="transport">
-          <path d="M 415,88 Q 348,102 285,116 Q 228,128 178,140 Q 148,148 115,157 Q 100,162 92,167"
-            stroke="#4a9db5" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="1 7" opacity="0.7"/>
-          <path d="M 415,88 Q 348,102 285,116 Q 228,128 178,140 Q 148,148 115,157 Q 100,162 92,167"
-            stroke="#7ec8e3" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-dasharray="1 7" opacity="0.4"/>
-          <circle cx="418" cy="86" r="8" fill="#4a9db5" stroke="white" stroke-width="2"/>
-          <circle cx="92" cy="167" r="8" fill="#2d7a92" stroke="white" stroke-width="2"/>
-          <circle cx="238" cy="124" r="5" fill="#4a9db5" stroke="white" stroke-width="1.5"/>
-          <text x="428" y="82" fill="#1a3040" font-size="8" font-weight="700">Zouerat</text>
-          <text x="58" y="178" fill="#1a3040" font-size="8" font-weight="700">Nouadhibou</text>
-          <text x="246" y="117" fill="#1a3040" font-size="7">Choum</text>
-          <text x="265" y="106" font-size="15" text-anchor="middle">🚂</text>
-        </g>
-
-        <!-- 2. Eye of the Sahara -->
-        <g class="region" id="region-richat" data-place="richat" onclick="openPlace('richat')" data-cat="nature">
-          <circle cx="305" cy="172" r="34" fill="rgba(180,130,70,0.1)" stroke="#b07840" stroke-width="1.5" stroke-dasharray="3 3"/>
-          <circle cx="305" cy="172" r="23" fill="rgba(180,130,70,0.16)" stroke="#c08840" stroke-width="1.5"/>
-          <circle cx="305" cy="172" r="13" fill="rgba(192,98,42,0.2)" stroke="#c0622a" stroke-width="2"/>
-          <circle cx="305" cy="172" r="5" fill="#c0622a" opacity="0.85"/>
-          <circle cx="305" cy="172" r="36" fill="url(#eyeGlow)"/>
-          <text x="305" y="215" fill="#f0d080" font-size="8" font-weight="700" text-anchor="middle">Eye of Sahara</text>
-        </g>
-
-        <!-- 3. Banc d'Arguin -->
-        <g class="region" id="region-arguin" data-place="arguin" onclick="openPlace('arguin')" data-cat="nature">
-          <ellipse cx="88" cy="248" rx="18" ry="38" fill="#3a9080" opacity="0.38" stroke="#2a8070" stroke-width="1.5" stroke-dasharray="4 3"/>
-          <text x="88" y="253" fill="#90e0d0" font-size="7" text-anchor="middle" font-weight="700">Banc</text>
-          <text x="88" y="263" fill="#90e0d0" font-size="7" text-anchor="middle" font-weight="700">d'Arguin</text>
-          <text x="88" y="237" font-size="13" text-anchor="middle">🦩</text>
-        </g>
-
-        <!-- 4. Chinguetti -->
-        <g class="region" id="region-chinguetti" data-place="chinguetti" onclick="openPlace('chinguetti')" data-cat="historic">
-          <ellipse cx="285" cy="235" rx="21" ry="17" fill="rgba(192,98,42,0.2)" stroke="#e08040" stroke-width="1.8"/>
-          <text x="285" y="260" fill="#f0c070" font-size="8" font-weight="700" text-anchor="middle">Chinguetti</text>
-          <text x="285" y="236" font-size="14" text-anchor="middle">🕌</text>
-        </g>
-
-        <!-- 5. Oualata -->
-        <g class="region" id="region-oualata" data-place="oualata" onclick="openPlace('oualata')" data-cat="historic">
-          <ellipse cx="415" cy="308" rx="22" ry="16" fill="rgba(192,98,42,0.2)" stroke="#e08040" stroke-width="1.8"/>
-          <text x="415" y="332" fill="#f0c070" font-size="8" font-weight="700" text-anchor="middle">Oualata</text>
-          <text x="415" y="309" font-size="14" text-anchor="middle">📜</text>
-        </g>
-
-        <!-- 6. Atar -->
-        <g class="region" id="region-atar" data-place="atar" onclick="openPlace('atar')" data-cat="city">
-          <ellipse cx="235" cy="202" rx="19" ry="15" fill="rgba(158,139,110,0.22)" stroke="#c0a060" stroke-width="1.5"/>
-          <text x="235" y="225" fill="#e0c890" font-size="8" font-weight="700" text-anchor="middle">Atar</text>
-          <text x="235" y="203" font-size="14" text-anchor="middle">🏘️</text>
-        </g>
-
-        <!-- 7. Terjit Oasis -->
-        <g class="region" id="region-terjit" data-place="terjit" onclick="openPlace('terjit')" data-cat="nature">
-          <ellipse cx="210" cy="234" rx="15" ry="12" fill="rgba(80,140,60,0.28)" stroke="#70b050" stroke-width="1.8"/>
-          <text x="210" y="253" fill="#a0e080" font-size="7.5" font-weight="700" text-anchor="middle">Terjit</text>
-          <text x="210" y="234" font-size="13" text-anchor="middle">🌴</text>
-        </g>
-
-        <!-- 8. Tichit -->
-        <g class="region" id="region-tichit" data-place="tichit" onclick="openPlace('tichit')" data-cat="historic" style="cursor:pointer">
-          <ellipse cx="362" cy="262" rx="21" ry="16" fill="rgba(192,98,42,0.22)" stroke="#e08040" stroke-width="2"/>
-          <text x="362" y="286" fill="#f0c070" font-size="8" font-weight="700" text-anchor="middle">Tichit</text>
-          <text x="362" y="263" font-size="14" text-anchor="middle">🏛️</text>
-        </g>
-
-        <!-- 9. Nouakchott -->
-        <g class="region" id="region-nouakchott" data-place="nouakchott" onclick="openPlace('nouakchott')" data-cat="city">
-          <circle cx="100" cy="318" r="15" fill="rgba(158,139,110,0.28)" stroke="#c0a060" stroke-width="2"/>
-          <text x="100" y="341" fill="#e0c890" font-size="8" font-weight="700" text-anchor="middle">Nouakchott</text>
-          <text x="100" y="319" font-size="14" text-anchor="middle">🏙️</text>
-          <text x="114" y="308" font-size="9" fill="#e8c87a">★</text>
-        </g>
-
-        <!-- 10. Ben Amera Monolith -->
-        <g class="region" id="region-benamera" data-place="benamera" onclick="openPlace('benamera')" data-cat="nature">
-          <ellipse cx="388" cy="138" rx="16" ry="13" fill="rgba(140,100,50,0.22)" stroke="#c0a060" stroke-width="1.8"/>
-          <text x="388" y="158" fill="#e0c890" font-size="7.5" font-weight="700" text-anchor="middle">Ben Amera</text>
-          <text x="388" y="139" font-size="13" text-anchor="middle">🗿</text>
-        </g>
-
-        <!-- Country watermark -->
-        <text x="258" y="300" fill="rgba(255,220,120,0.05)" font-family="Amiri,serif" font-size="22" font-weight="700" text-anchor="middle" transform="rotate(-8,258,300)">MAURITANIA</text>
-
-        <!-- Compass -->
-        <g transform="translate(458,525)">
-          <circle r="18" fill="rgba(5,15,25,0.7)" stroke="rgba(232,200,122,0.5)" stroke-width="1.5"/>
-          <text y="-6" text-anchor="middle" font-size="9" fill="#e8c87a" font-weight="700">N</text>
-          <text y="14" text-anchor="middle" font-size="6.5" fill="#e8c87a">S</text>
-          <text x="-11" y="4" text-anchor="middle" font-size="6.5" fill="#e8c87a">W</text>
-          <text x="13" y="4" text-anchor="middle" font-size="6.5" fill="#e8c87a">E</text>
-          <polygon points="0,-13 2.5,-2 0,0 -2.5,-2" fill="#c0622a"/>
-          <polygon points="0,13 2.5,2 0,0 -2.5,2" fill="#6b5030"/>
-        </g>
-      </svg>
-    </div>
+    <div id="map"></div>
   </div>
 
-  <!-- Music bar -->
   <div class="music-bar">
     <div id="musicPulse" class="music-pulse" style="display:none"></div>
     <button class="music-btn" id="musicBtn" onclick="toggleMusic()">🎵 Play Music</button>
     <span class="music-info" id="musicLabel">—</span>
   </div>
 
-  <!-- YouTube mini player (hidden until activated) -->
-  <div id="ytPlayer">
-    <!-- iframe injected by JS to avoid autoload -->
-  </div>
-
+  <div id="ytPlayer"></div>
 </div>
 
 <!-- iOS tap-to-start overlay -->
@@ -457,8 +307,11 @@
   </div>
 </div>
 
+<div id="terrainBadge">▲ 3D TERRAIN</div>
+
 <script>
-const PLACES={
+// ── Places data (unchanged) ──────────────────────────────────────────────────
+const PLACES = {
   train:{name:"Iron Ore Train",subtitle:"Zouerat → Choum → Nouadhibou",category:"transport",categoryColor:"#4a9db5",emoji:"🚂",
     desc:"One of the longest and heaviest trains in the world — up to 3 km long. It hauls iron ore across the Sahara from the mines of Zouerat to the port of Nouadhibou, a 700 km journey taking 12–20 hours. Adventure travelers ride the open ore cars for free, sleeping under stars with the vast desert rolling by.",
     facts:[{label:"Length",value:"Up to 3 km"},{label:"Route",value:"700 km"},{label:"Cargo",value:"Iron Ore"},{label:"Journey",value:"~16 hours"}],
@@ -501,46 +354,340 @@ const PLACES={
     links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/nouakchott/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=nouakchott+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Nouakchott",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Nouakchott+Mauritania",style:"link-maps"}]}
 };
 
-const CAT={
+const CAT = {
   nature:{bg:'rgba(80,130,60,0.2)',text:'#a0e080',border:'#6a8c4f'},
   historic:{bg:'rgba(180,80,30,0.2)',text:'#f0a060',border:'#c0622a'},
   transport:{bg:'rgba(50,120,160,0.2)',text:'#80c8e8',border:'#4a9db5'},
   city:{bg:'rgba(140,120,80,0.2)',text:'#d0b880',border:'#9e8b6e'},
 };
 
-function openPlace(id){
-  const p=PLACES[id]; if(!p) return;
-  const c=CAT[p.category];
-  document.getElementById('panelHero').innerHTML=`<div class="panel-hero-ph" style="background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(0,0,0,0.2)),linear-gradient(135deg,${p.categoryColor}33,${p.categoryColor}55)">${p.emoji}</div>`;
-  const badge=document.getElementById('panelCat');
-  badge.textContent=p.category.charAt(0).toUpperCase()+p.category.slice(1);
-  badge.style.cssText=`background:${c.bg};color:${c.text};border:1.5px solid ${c.border}`;
-  document.getElementById('panelTitle').textContent=p.name;
-  document.getElementById('panelSub').textContent=p.subtitle;
-  document.getElementById('panelDesc').textContent=p.desc;
-  document.getElementById('panelFacts').innerHTML=p.facts.map(f=>`<div class="fact-card"><div class="fact-label">${f.label}</div><div class="fact-value">${f.value}</div></div>`).join('');
-  document.getElementById('panelLinks').innerHTML=p.links.map(l=>`<a href="${l.url}" target="_blank" rel="noopener" class="link-btn ${l.style}"><span>${l.icon}</span>${l.label}</a>`).join('');
-  document.getElementById('infoPanel').classList.add('open');
-  document.getElementById('backdrop').classList.add('open');
-}
+// Locations that trigger 3D terrain + camera tilt
+const TERRAIN_LOCATIONS = {
+  richat: { zoom: 8.5, bearing: 20 },
+  atar:   { zoom: 9,   bearing: -10 },
+  terjit: { zoom: 10,  bearing: 15 },
+  benamera: { zoom: 9, bearing: 30 },
+};
 
-function closePanel(){
-  document.getElementById('infoPanel').classList.remove('open');
-  document.getElementById('backdrop').classList.remove('open');
-}
+// ── Coordinates (lng, lat) ───────────────────────────────────────────────────
+const COORDS = {
+  richat:     [-11.40, 21.12],
+  arguin:     [-16.28, 19.92],
+  chinguetti: [-12.37, 20.45],
+  oualata:    [-7.03,  17.30],
+  atar:       [-13.05, 20.52],
+  terjit:     [-13.50, 20.43],
+  tichit:     [-9.49,  18.45],
+  nouakchott: [-15.98, 18.08],
+  benamera:   [-12.31, 23.21],
+  // train midpoint (Choum) for clickable marker
+  train:      [-15.48, 20.52],
+};
 
-function filterCat(el,cat){
-  document.querySelectorAll('.legend-item').forEach(e=>e.classList.remove('active'));
-  el.classList.add('active');
-  document.querySelectorAll('.region').forEach(r=>{
-    const c=r.getAttribute('data-cat');
-    const show=cat==='all'||c===cat;
-    r.style.opacity=show?'1':'0.12';
-    r.style.pointerEvents=show?'all':'none';
+// Train route line
+const TRAIN_LINE = [[-12.47, 22.73], [-15.48, 20.52], [-17.03, 20.93]];
+
+const MARKERS = [];
+let terrainEnabled = false;
+let map;
+
+// ── MapLibre init ────────────────────────────────────────────────────────────
+map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.openfreemap.org/styles/dark',
+  center: [-11.5, 20.0],
+  zoom: 5.1,
+  minZoom: 4.0,
+  maxZoom: 14,
+  attributionControl: true,
+  maxBounds: [[-22, 12], [1, 32]],
+  pitchWithRotate: true,
+});
+
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+
+map.on('style.load', () => {
+  applyDesertPalette();
+  addTrainLayer();
+  addOceanShimmer();
+  addMarkers();
+  startOceanPulse();
+});
+
+function applyDesertPalette() {
+  const styleData = map.getStyle();
+  if (!styleData || !styleData.layers) return;
+
+  const bgLayers = ['background','land','landcover','landuse'];
+  const waterLayers = ['water','ocean','water-shadow','waterway'];
+  const roadLayers = styleData.layers
+    .filter(l => l.id && (l.id.includes('road') || l.id.includes('street') || l.id.includes('highway')))
+    .map(l => l.id);
+
+  styleData.layers.forEach(layer => {
+    const id = layer.id;
+    // Land / background → dark desert brown
+    if (id === 'background' || id === 'land' || id === 'landcover') {
+      try { map.setPaintProperty(id, 'background-color', '#1e1508'); } catch(e) {}
+      try { map.setPaintProperty(id, 'fill-color', '#1e1508'); } catch(e) {}
+    }
+    // Water → deep ocean dark blue
+    if (waterLayers.some(w => id.startsWith(w))) {
+      try { map.setPaintProperty(id, 'fill-color', '#0e2030'); } catch(e) {}
+      try { map.setPaintProperty(id, 'line-color', '#0e2030'); } catch(e) {}
+    }
+    // Country borders → terracotta dashed
+    if (id.includes('border') || id.includes('boundary')) {
+      try {
+        map.setPaintProperty(id, 'line-color', '#c0622a');
+        map.setPaintProperty(id, 'line-opacity', 0.7);
+      } catch(e) {}
+    }
+    // Place labels → gold/stone tones
+    if (id.includes('label') || id.includes('place') || id.includes('city')) {
+      try { map.setPaintProperty(id, 'text-color', '#c8a870'); } catch(e) {}
+      try { map.setPaintProperty(id, 'text-halo-color', '#1a1208'); } catch(e) {}
+    }
   });
 }
 
-// ── Music ──
+function addTrainLayer() {
+  map.addSource('train-route', {
+    type: 'geojson',
+    data: {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: TRAIN_LINE }
+    }
+  });
+  map.addLayer({
+    id: 'train-bg',
+    type: 'line',
+    source: 'train-route',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#4a9db5', 'line-width': 10, 'line-opacity': 0.18 }
+  });
+  map.addLayer({
+    id: 'train-line',
+    type: 'line',
+    source: 'train-route',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#7ec8e3', 'line-width': 2.5, 'line-dasharray': [2, 5], 'line-opacity': 0.8 }
+  });
+
+  // Terminal dots
+  [[-12.47, 22.73], [-17.03, 20.93]].forEach(coord => {
+    const el = document.createElement('div');
+    el.className = 'mb-train-dot';
+    el.onclick = () => openPlace('train');
+    new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(coord).addTo(map);
+  });
+}
+
+function addOceanShimmer() {
+  // Subtle shimmer polygon over Atlantic coast area
+  map.addSource('ocean-shimmer', {
+    type: 'geojson',
+    data: {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-22, 14], [-16.0, 14], [-15.5, 16], [-16.5, 18.5],
+          [-17.5, 21], [-17.2, 24], [-18, 27], [-22, 27], [-22, 14]
+        ]]
+      }
+    }
+  });
+  map.addLayer({
+    id: 'ocean-shimmer-layer',
+    type: 'fill',
+    source: 'ocean-shimmer',
+    paint: { 'fill-color': '#3a8fa8', 'fill-opacity': 0.05 }
+  });
+}
+
+let wavePhase = 0;
+function startOceanPulse() {
+  setInterval(() => {
+    wavePhase = (wavePhase + 0.04) % (Math.PI * 2);
+    const opacity = 0.04 + Math.sin(wavePhase) * 0.03;
+    try { map.setPaintProperty('ocean-shimmer-layer', 'fill-opacity', opacity); } catch(e) {}
+  }, 120);
+}
+
+function addMarkers() {
+  let delay = 0;
+  Object.keys(PLACES).forEach(id => {
+    const p = PLACES[id];
+    const coord = COORDS[id];
+    if (!coord) return;
+
+    const el = document.createElement('div');
+    el.className = 'mb-marker';
+    el.setAttribute('data-cat', p.category);
+    el.setAttribute('data-id', id);
+    el.style.animationDelay = delay + 'ms';
+    delay += 80;
+
+    el.innerHTML = `<div class="mb-icon">${p.emoji}</div><div class="mb-label">${p.name.split(' ').slice(0,2).join(' ')}</div>`;
+
+    el.onclick = () => {
+      el.classList.add('clicked');
+      setTimeout(() => el.classList.remove('clicked'), 600);
+      openPlace(id);
+    };
+
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat(coord)
+      .addTo(map);
+
+    MARKERS.push({ id, marker, cat: p.category });
+  });
+}
+
+// ── Info panel ───────────────────────────────────────────────────────────────
+function openPlace(id) {
+  const p = PLACES[id];
+  if (!p) return;
+  const c = CAT[p.category];
+
+  document.getElementById('panelHero').innerHTML =
+    `<div class="panel-hero-ph" style="background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(0,0,0,0.2)),linear-gradient(135deg,${p.categoryColor}33,${p.categoryColor}55)">${p.emoji}</div>`;
+
+  const badge = document.getElementById('panelCat');
+  badge.textContent = p.category.charAt(0).toUpperCase() + p.category.slice(1);
+  badge.style.cssText = `background:${c.bg};color:${c.text};border:1.5px solid ${c.border}`;
+
+  document.getElementById('panelTitle').textContent = p.name;
+  document.getElementById('panelSub').textContent = p.subtitle;
+  document.getElementById('panelDesc').textContent = p.desc;
+  document.getElementById('panelFacts').innerHTML = p.facts.map(f =>
+    `<div class="fact-card"><div class="fact-label">${f.label}</div><div class="fact-value">${f.value}</div></div>`
+  ).join('');
+  document.getElementById('panelLinks').innerHTML = p.links.map(l =>
+    `<a href="${l.url}" target="_blank" rel="noopener" class="link-btn ${l.style}"><span>${l.icon}</span>${l.label}</a>`
+  ).join('');
+
+  document.getElementById('infoPanel').classList.add('open');
+  document.getElementById('backdrop').classList.add('open');
+
+  // Fly to location
+  const coord = COORDS[id];
+  if (coord) {
+    const terrainOpts = TERRAIN_LOCATIONS[id];
+    if (terrainOpts) {
+      enableTerrain();
+      map.flyTo({ center: coord, zoom: terrainOpts.zoom, bearing: terrainOpts.bearing, pitch: 45, duration: 1800, essential: true });
+    } else {
+      if (terrainEnabled) disableTerrain();
+      map.flyTo({ center: coord, zoom: id === 'train' ? 6 : 7.5, pitch: 0, bearing: 0, duration: 1400, essential: true });
+    }
+  }
+}
+
+function closePanel() {
+  document.getElementById('infoPanel').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+  if (terrainEnabled) disableTerrain();
+  map.easeTo({ pitch: 0, bearing: 0, zoom: 5.1, center: [-11.5, 20.0], duration: 1200 });
+}
+
+function filterCat(el, cat) {
+  document.querySelectorAll('.legend-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  MARKERS.forEach(({ marker, cat: mCat }) => {
+    const show = cat === 'all' || mCat === cat;
+    marker.getElement().style.opacity = show ? '1' : '0.1';
+    marker.getElement().style.pointerEvents = show ? 'all' : 'none';
+  });
+  // Also toggle train line layer
+  const trainShow = cat === 'all' || cat === 'transport';
+  try {
+    map.setPaintProperty('train-line', 'line-opacity', trainShow ? 0.8 : 0.05);
+    map.setPaintProperty('train-bg', 'line-opacity', trainShow ? 0.18 : 0.02);
+  } catch(e) {}
+}
+
+// ── 3D Terrain ───────────────────────────────────────────────────────────────
+function enableTerrain() {
+  if (terrainEnabled) return;
+  try {
+    if (!map.getSource('terrain-dem')) {
+      map.addSource('terrain-dem', {
+        type: 'raster-dem',
+        tiles: ['https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        maxzoom: 14,
+        encoding: 'terrarium'
+      });
+    }
+    map.setTerrain({ source: 'terrain-dem', exaggeration: 2.0 });
+    terrainEnabled = true;
+    const badge = document.getElementById('terrainBadge');
+    badge.classList.add('show');
+    setTimeout(() => badge.classList.remove('show'), 2000);
+  } catch(e) {}
+}
+
+function disableTerrain() {
+  if (!terrainEnabled) return;
+  try {
+    map.setTerrain(null);
+    terrainEnabled = false;
+  } catch(e) {}
+}
+
+// ── Sand particle system ─────────────────────────────────────────────────────
+const sandCanvas = document.getElementById('sandCanvas');
+const ctx = sandCanvas.getContext('2d');
+let particles = [];
+let sandPaused = false;
+let animId;
+
+function resizeSand() {
+  sandCanvas.width = window.innerWidth;
+  sandCanvas.height = window.innerHeight;
+}
+resizeSand();
+window.addEventListener('resize', resizeSand);
+
+function mkParticle() {
+  return {
+    x: Math.random() * sandCanvas.width,
+    y: Math.random() * sandCanvas.height,
+    vx: 0.12 + Math.random() * 0.22,
+    vy: 0.04 + Math.random() * 0.14,
+    size: 0.8 + Math.random() * 1.6,
+    opacity: 0.18 + Math.random() * 0.38,
+  };
+}
+
+for (let i = 0; i < 45; i++) particles.push(mkParticle());
+
+function drawSand() {
+  if (sandPaused) { animId = requestAnimationFrame(drawSand); return; }
+  ctx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
+  particles.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(232,200,122,${p.opacity})`;
+    ctx.fill();
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x > sandCanvas.width + 2) { p.x = -2; p.y = Math.random() * sandCanvas.height; }
+    if (p.y > sandCanvas.height + 2) { p.y = -2; p.x = Math.random() * sandCanvas.width; }
+  });
+  animId = requestAnimationFrame(drawSand);
+}
+drawSand();
+
+// Pause particles when info panel open (less visual noise)
+const panelObserver = new MutationObserver(() => {
+  sandPaused = document.getElementById('infoPanel').classList.contains('open');
+});
+panelObserver.observe(document.getElementById('infoPanel'), { attributes: true, attributeFilter: ['class'] });
+
+// ── Music ────────────────────────────────────────────────────────────────────
 const SONGS = [
   { id: 'y5VoQps0Y3w', title: 'El Belloutou' },
   { id: 'z2Bf5In027A', title: 'Tikifit' },
@@ -556,36 +703,32 @@ const pulse = document.getElementById('musicPulse');
 const ytDiv = document.getElementById('ytPlayer');
 const overlay = document.getElementById('musicOverlay');
 
-function startMusic(){
+function startMusic() {
   const start = picked.start ? `&start=${picked.start}` : '';
-  ytDiv.innerHTML = `<iframe
-    src="https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}&controls=0&rel=0&modestbranding=1${start}"
-    allow="autoplay; encrypted-media" allowfullscreen>
-  </iframe>`;
+  ytDiv.innerHTML = `<iframe src="https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}&controls=0&rel=0&modestbranding=1${start}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
   ytDiv.style.display = 'block';
   musicOn = true;
   btn.innerHTML = '⏸ &nbsp;Pause';
   pulse.style.display = 'block';
 }
 
-function handleOverlayTap(){
-  // iOS requires a user gesture — this tap unlocks audio
+function handleOverlayTap() {
   overlay.style.display = 'none';
   startMusic();
 }
 
-function toggleMusic(){
-  if(!musicOn){
+function toggleMusic() {
+  if (!musicOn) {
     startMusic();
   } else {
-    ytDiv.innerHTML = ''; /* destroying iframe stops audio */
+    ytDiv.innerHTML = '';
     musicOn = false;
     btn.innerHTML = '🎵 &nbsp;Play';
     pulse.style.display = 'none';
   }
 }
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
 </script>
 </body>
 </html>
