@@ -122,6 +122,28 @@
     }
     .mb-train-dot:hover{transform:scale(1.3);}
 
+    /* Animated train sprite */
+    .train-sprite{
+      font-size:20px;cursor:pointer;
+      filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));
+      transition:transform 0.1s;
+      user-select:none;
+    }
+    .train-sprite:hover{transform:scale(1.3);}
+
+    /* Panel nav */
+    .panel-nav{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:8px 16px 0;margin-bottom:4px;
+    }
+    .nav-btn{
+      background:rgba(255,255,255,0.07);border:1px solid rgba(232,200,122,0.2);
+      color:#9a8060;border-radius:99px;padding:3px 12px;font-size:0.72rem;
+      cursor:pointer;transition:all 0.2s;
+    }
+    .nav-btn:hover{background:rgba(192,98,42,0.35);color:var(--gold);border-color:#c0622a;}
+    .nav-counter{font-size:0.68rem;color:#6b5d42;}
+
     /* ── Phone layout ── */
     @media(max-width:640px){
       #app{height:100dvh;}
@@ -297,6 +319,11 @@
     <div id="panelHero" class="panel-hero-ph">🌍</div>
     <button class="panel-close" onclick="closePanel()">✕</button>
   </div>
+  <div class="panel-nav">
+    <button class="nav-btn" onclick="navPlace(-1)">← Prev</button>
+    <span class="nav-counter" id="navCounter"></span>
+    <button class="nav-btn" onclick="navPlace(1)">Next →</button>
+  </div>
   <div class="panel-body">
     <div class="panel-cat" id="panelCat"></div>
     <div class="panel-title" id="panelTitle"></div>
@@ -351,7 +378,11 @@ const PLACES = {
   nouakchott:{name:"Nouakchott",subtitle:"Capital City ★",category:"city",categoryColor:"#9e8b6e",emoji:"🏙️",
     desc:"One of the youngest capital cities in the world — barely a village when Mauritania gained independence in 1960. Today home to over 1 million people. The famous Fish Market at sunset is a vibrant spectacle where hundreds of painted pirogues land their catch on the beach.",
     facts:[{label:"Population",value:"~1.2 million"},{label:"Founded",value:"1960"},{label:"Elevation",value:"5 m (sea level)"},{label:"Known for",value:"Fish market"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/nouakchott/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=nouakchott+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Nouakchott",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Nouakchott+Mauritania",style:"link-maps"}]}
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/nouakchott/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=nouakchott+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Nouakchott",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Nouakchott+Mauritania",style:"link-maps"}]},
+  nouadhibou:{name:"Nouadhibou",subtitle:"Port City & Train Terminus",category:"city",categoryColor:"#4a9db5",emoji:"⚓",
+    desc:"Mauritania's second city and economic capital — a narrow peninsula jutting between the Atlantic and the Bay of Lévrier. The Iron Ore Train terminates here, offloading millions of tonnes annually at one of Africa's largest iron ore export terminals. The ship graveyard on Cap Blanc beach, with dozens of rusting wrecks stretching along the coast, is one of the world's most surreal and photogenic sights.",
+    facts:[{label:"Population",value:"~120,000"},{label:"Port",value:"Iron ore terminal"},{label:"Known for",value:"Ship graveyard"},{label:"Coast",value:"Atlantic & Bay"}],
+    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/nouadhibou/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=nouadhibou+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Nouadhibou",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Nouadhibou+Mauritania",style:"link-maps"}]}
 };
 
 const CAT = {
@@ -380,6 +411,7 @@ const COORDS = {
   tichit:     [-9.49,  18.45],
   nouakchott: [-15.98, 18.08],
   benamera:   [-12.31, 23.21],
+  nouadhibou: [-17.03, 20.93],
   // train midpoint (Choum) for clickable marker
   train:      [-15.48, 20.52],
 };
@@ -474,13 +506,11 @@ function addTrainLayer() {
     paint: { 'line-color': '#7ec8e3', 'line-width': 2.5, 'line-dasharray': [2, 5], 'line-opacity': 0.8 }
   });
 
-  // Terminal dots
-  [[-12.47, 22.73], [-17.03, 20.93]].forEach(coord => {
-    const el = document.createElement('div');
-    el.className = 'mb-train-dot';
-    el.onclick = () => openPlace('train');
-    new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(coord).addTo(map);
-  });
+  // Zouerat terminal dot only (Nouadhibou has its own location marker)
+  const dotEl = document.createElement('div');
+  dotEl.className = 'mb-train-dot';
+  dotEl.onclick = () => openPlace('train');
+  new maplibregl.Marker({ element: dotEl, anchor: 'center' }).setLngLat([-12.47, 22.73]).addTo(map);
 }
 
 function addOceanShimmer() {
@@ -545,11 +575,69 @@ function addMarkers() {
   });
 }
 
+// ── Animated train sprite ────────────────────────────────────────────────────
+(function initTrainSprite() {
+  const route = TRAIN_LINE; // [zouerat, choum, nouadhibou]
+  function lngLatDist(a, b) {
+    const dx = (b[0]-a[0])*Math.cos((a[1]+b[1])*Math.PI/360);
+    const dy = b[1]-a[1];
+    return Math.sqrt(dx*dx+dy*dy);
+  }
+  const d01 = lngLatDist(route[0], route[1]);
+  const d12 = lngLatDist(route[1], route[2]);
+  const total = d01 + d12;
+
+  const el = document.createElement('div');
+  el.className = 'train-sprite';
+  el.textContent = '🚂';
+  el.title = 'Iron Ore Train';
+  el.onclick = () => openPlace('train');
+
+  const sprite = new maplibregl.Marker({ element: el, anchor: 'center' })
+    .setLngLat(route[0])
+    .addTo(map);
+
+  let t = 0;
+  const SPEED = 0.00015; // fraction of total route per frame
+  let going = 1; // 1 = Zouerat→Nouadhibou, -1 = back
+  let phase = 0; // 0..1 along full route
+
+  function tick() {
+    phase += SPEED * going;
+    if (phase >= 1) { phase = 1; going = -1; el.style.transform = 'scaleX(-1)'; }
+    if (phase <= 0) { phase = 0; going = 1; el.style.transform = 'scaleX(1)'; }
+
+    const dist = phase * total;
+    let pos;
+    if (dist <= d01) {
+      const frac = dist / d01;
+      pos = [route[0][0]+(route[1][0]-route[0][0])*frac, route[0][1]+(route[1][1]-route[0][1])*frac];
+    } else {
+      const frac = (dist-d01)/d12;
+      pos = [route[1][0]+(route[2][0]-route[1][0])*frac, route[1][1]+(route[2][1]-route[1][1])*frac];
+    }
+    sprite.setLngLat(pos);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
 // ── Info panel ───────────────────────────────────────────────────────────────
+const PLACE_KEYS = Object.keys(PLACES);
+let currentPlaceIdx = 0;
+
+function navPlace(dir) {
+  currentPlaceIdx = (currentPlaceIdx + dir + PLACE_KEYS.length) % PLACE_KEYS.length;
+  openPlace(PLACE_KEYS[currentPlaceIdx]);
+}
+
 function openPlace(id) {
   const p = PLACES[id];
   if (!p) return;
   const c = CAT[p.category];
+  const idx = PLACE_KEYS.indexOf(id);
+  if (idx >= 0) currentPlaceIdx = idx;
+  document.getElementById('navCounter').textContent = `${currentPlaceIdx+1} / ${PLACE_KEYS.length}`;
 
   document.getElementById('panelHero').innerHTML =
     `<div class="panel-hero-ph" style="background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(0,0,0,0.2)),linear-gradient(135deg,${p.categoryColor}33,${p.categoryColor}55)">${p.emoji}</div>`;
