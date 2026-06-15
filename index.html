@@ -393,14 +393,15 @@
       display: flex; align-items: center; justify-content: center;
       position: relative; overflow: hidden;
     }
-    /* Diagonal stripe texture on hero */
+    /* Diagonal stripe texture on hero — below the icon */
     .panel-hero-ph::before {
-      content: ''; position: absolute; inset: 0; pointer-events: none;
+      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
       background: repeating-linear-gradient(
         -45deg, transparent, transparent 22px,
-        rgba(255,255,255,.018) 22px, rgba(255,255,255,.018) 44px
+        rgba(255,255,255,.022) 22px, rgba(255,255,255,.022) 44px
       );
     }
+    /* Hero icon wrapper — sits above the stripe texture */
     .hero-icon-wrap {
       width: 80px; height: 80px;
       display: flex; align-items: center; justify-content: center;
@@ -1283,10 +1284,11 @@ function openPlace(id) {
 
   // Hero: large SVG icon with category gradient background
   const iconSvg = ICONS[PLACE_ICON[id] || 'city'];
+  // Inject explicit width/height into the svg tag so it renders at 80×80 without CSS dependency
+  const sizedSvg = iconSvg.replace('<svg ', '<svg width="80" height="80" ');
   const hero = document.getElementById('panelHero');
-  hero.style.background = `linear-gradient(135deg, rgba(0,0,0,.45), rgba(0,0,0,.2)),
-    linear-gradient(135deg, ${p.categoryColor}2a, ${p.categoryColor}55)`;
-  hero.innerHTML = `<div class="hero-icon-wrap" style="filter:drop-shadow(0 6px 22px ${p.categoryColor}99)">${iconSvg}</div>`;
+  hero.style.cssText = `background: linear-gradient(135deg, ${p.categoryColor}30, ${p.categoryColor}60), linear-gradient(160deg, #2a1a0a, #1a0f04); width:100%; height:155px; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;`;
+  hero.innerHTML = `<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 20px ${p.categoryColor})">${sizedSvg}</div>`;
 
   const badge = document.getElementById('panelCat');
   badge.textContent = p.category.charAt(0).toUpperCase() + p.category.slice(1);
