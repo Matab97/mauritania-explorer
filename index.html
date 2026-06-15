@@ -199,8 +199,15 @@
     .train-sprite svg { display: block; width: 76px; height: auto;
       filter: drop-shadow(0 3px 5px rgba(0,0,0,.75)); transition: transform .15s; }
     .train-sprite:hover svg { transform: scale(1.12); }
-    /* Smoke circles hidden — saved 3 simultaneous animations */
-    .train-smoke { display: none; }
+    .train-smoke { transform-box: fill-box; transform-origin: center;
+      animation: trainSmoke 2.2s ease-out infinite; }
+    .train-smoke.s2 { animation-delay: .75s; }
+    .train-smoke.s3 { animation-delay: 1.5s; }
+    @keyframes trainSmoke {
+      0%   { opacity: 0;  transform: translate(0,0)    scale(.4); }
+      18%  { opacity: .45; }
+      100% { opacity: 0;  transform: translate(-4px,-10px) scale(1.4); }
+    }
     .train-car { transform-box: fill-box; transform-origin: 50% 92%;
       animation: carWobble .85s ease-in-out infinite; }
     .train-car.c1 { animation-delay: .12s; }
@@ -572,11 +579,13 @@
 // ── CONFIG (from Mapbox reference pattern) ────────────────────────────────────
 const CONFIG = {
   center:             [-11.5, 20.0],
-  startZoom:          4.4,
+  // Wide Africa-level start — the map sits here behind the overlay
+  startCenter:        [-5, 20],
+  startZoom:          3.0,
   restingZoom:        5.1,
   flyZoom:            7.5,
   flyDuration:        1800,
-  initialFlyDuration: 2400,
+  introDuration:      3400,  // Africa → Mauritania on overlay tap
   minZoom:            4.0,
   maxZoom:            14,
 };
@@ -816,12 +825,12 @@ let searchTimer     = null;
 map = new maplibregl.Map({
   container: 'map',
   style: 'https://tiles.openfreemap.org/styles/dark',
-  center: CONFIG.center,
+  center: CONFIG.startCenter,
   zoom:   CONFIG.startZoom,
-  minZoom: CONFIG.minZoom,
+  minZoom: 2.0,          // wide during intro; tightened after zoom-in
   maxZoom: CONFIG.maxZoom,
   attributionControl: true,
-  maxBounds: [[-26, 10], [4, 35]],
+  // maxBounds set after intro animation ends
   pitchWithRotate: false,
   fadeDuration: 100,
 });
@@ -832,10 +841,10 @@ map.on('style.load', () => {
   applyDesertPalette();
   addTrainLayer();
   addOceanShimmer();
+  addCoastlineWave();
   addMarkers();
   updateCategoryCounts();
-  // Gentle initial zoom-in to resting position
-  fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: CONFIG.initialFlyDuration });
+  // Map stays at the wide Africa view until the overlay is tapped
 });
 
 // ── fly() — centralised flyTo with cubic-out easing (from Mapbox reference) ──
@@ -918,6 +927,81 @@ function addOceanShimmer() {
     id: 'ocean-shimmer-layer', type: 'fill', source: 'ocean-shimmer',
     paint: { 'fill-color': '#3a8fa8', 'fill-opacity': .05 }
   });
+}
+
+// ── Atlantic coastline wave animation ─────────────────────────────────────────
+// Simplified Mauritanian coastline — Cap Blanc → Senegal border (N→S)
+const COAST_COORDS = [
+  [-17.062, 21.349], [-17.063, 21.200], [-17.056, 21.083],
+  [-17.039, 20.950], [-17.028, 20.810], [-17.046, 20.630],
+  [-17.037, 20.445], [-16.991, 20.226], [-16.952, 20.082],
+  [-16.877, 19.940], [-16.722, 19.816], [-16.600, 19.680],
+  [-16.519, 19.601], [-16.404, 19.474], [-16.292, 19.360],
+  [-16.154, 19.141], [-16.113, 18.961], [-16.140, 18.820],
+  [-16.216, 18.680], [-16.375, 18.490], [-16.470, 18.330],
+  [-16.554, 18.180], [-16.497, 18.001], [-16.385, 17.830],
+  [-16.280, 17.650], [-16.143, 17.420], [-16.050, 17.150],
+];
+
+function addCoastlineWave() {
+  map.addSource('coastline', {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: COAST_COORDS } }
+  });
+
+  // Soft background glow
+  map.addLayer({
+    id: 'coast-glow', type: 'line', source: 'coastline',
+    paint: { 'line-color': '#4a9db5', 'line-width': 9, 'line-opacity': .10, 'line-blur': 5 }
+  });
+
+  // Traveling-wave dashed line (marching-ants style — each frame shifts the
+  // dash pattern by half a unit to simulate surf moving along the shore).
+  map.addLayer({
+    id: 'coast-wave', type: 'line', source: 'coastline',
+    paint: {
+      'line-color': '#9fd4e8',
+      'line-width': 1.8,
+      'line-opacity': .75,
+      'line-dasharray': [3, 7],
+    }
+  });
+
+  // Pre-build 20 dasharray "frames" that cycle the 10-unit period (3 dash + 7 gap)
+  const PERIOD = 10;           // dash + gap total
+  const DASH   = 3;
+  const FRAMES = 20;
+  const seqs   = [];
+  for (let i = 0; i < FRAMES; i++) {
+    const offset = (i / FRAMES) * PERIOD; // 0 → 10
+    const d0 = (DASH  - offset % DASH)  % DASH;   // leading partial dash
+    const g0 = (PERIOD - DASH - (offset % (PERIOD - DASH))) % (PERIOD - DASH);
+    // Simple two-value shift: [gap-before-first-dash, dash, gap]
+    const shift = (i / FRAMES) * PERIOD;
+    seqs.push([
+      PERIOD - shift % PERIOD,
+      DASH,
+      Math.max(0, shift % PERIOD - (PERIOD - DASH)),
+    ].filter(v => v > 0));
+  }
+
+  // Fallback: just cycle through 20 evenly shifted [3,7] patterns
+  const dashFrames = Array.from({ length: FRAMES }, (_, i) => {
+    const s = (i / FRAMES) * PERIOD;
+    if (s < DASH) return [DASH - s, PERIOD - DASH, s];
+    return [0, s - DASH, DASH, PERIOD - s];
+  });
+
+  let frame = 0, lastCoastTime = 0;
+  function stepCoast(now) {
+    if (now - lastCoastTime > 80) {   // ~12 fps — enough for smooth wave feel
+      lastCoastTime = now;
+      frame = (frame + 1) % FRAMES;
+      try { map.setPaintProperty('coast-wave', 'line-dasharray', dashFrames[frame]); } catch(e) {}
+    }
+    requestAnimationFrame(stepCoast);
+  }
+  requestAnimationFrame(stepCoast);
 }
 
 // ── Markers with custom SVG icons ─────────────────────────────────────────────
@@ -1327,6 +1411,19 @@ function startMusic() {
 function handleOverlayTap() {
   overlay.style.display = 'none';
   startMusic();
+  // Fly in from Africa overview → Mauritania resting view
+  map.flyTo({
+    center:   CONFIG.center,
+    zoom:     CONFIG.restingZoom,
+    essential: true,
+    duration:  CONFIG.introDuration,
+    easing:    cubicOut,
+  });
+  // Once the intro animation settles, constrain the map
+  map.once('moveend', () => {
+    map.setMinZoom(CONFIG.minZoom);
+    map.setMaxBounds([[-26, 10], [4, 35]]);
+  });
 }
 
 function toggleMusic() {
