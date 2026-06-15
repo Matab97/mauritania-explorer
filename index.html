@@ -65,16 +65,23 @@
     .maplibregl-ctrl-bottom-right{bottom:36px!important;}
 
     /* ── Markers ── */
+    /* NOTE: MapLibre positions this root element via an inline `transform`.
+       Do NOT set `transform`/`position`/`animation` here or the marker will
+       detach from its map coordinates. Layout + entrance animation live on the
+       inner wrapper instead. */
     .mb-marker{
-      cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
+      cursor:pointer;
+    }
+    .mb-marker-inner{
+      display:flex;flex-direction:column;align-items:center;gap:2px;
       animation:markerDrop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
-      position:relative;
     }
     @keyframes markerDrop{
       from{transform:translateY(-20px) scale(0.3);opacity:0;}
       to{transform:translateY(0) scale(1);opacity:1;}
     }
     .mb-icon{
+      position:relative;
       width:38px;height:38px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
       font-size:18px;
@@ -559,7 +566,7 @@ function addMarkers() {
     el.style.animationDelay = delay + 'ms';
     delay += 80;
 
-    el.innerHTML = `<div class="mb-icon">${p.emoji}</div><div class="mb-label">${p.name.split(' ').slice(0,2).join(' ')}</div>`;
+    el.innerHTML = `<div class="mb-marker-inner"><div class="mb-icon">${p.emoji}</div><div class="mb-label">${p.name.split(' ').slice(0,2).join(' ')}</div></div>`;
 
     el.onclick = () => {
       el.classList.add('clicked');
