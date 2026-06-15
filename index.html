@@ -134,7 +134,7 @@
     /* MapLibre positions .train-sprite via an inline transform, so the travel-
        direction flip lives on the inner .train-dir wrapper to avoid clobbering it. */
     .train-dir{transition:transform 0.3s ease;transform-origin:center;}
-    .train-sprite svg{display:block;width:62px;height:auto;
+    .train-sprite svg{display:block;width:76px;height:auto;
       filter:drop-shadow(0 3px 5px rgba(0,0,0,0.75));transition:transform 0.15s;}
     .train-sprite:hover svg{transform:scale(1.12);}
     .train-smoke{transform-box:fill-box;transform-origin:center;
@@ -145,6 +145,16 @@
       0%{opacity:0;transform:translate(0,0) scale(0.4);}
       15%{opacity:0.5;}
       100%{opacity:0;transform:translate(-5px,-11px) scale(1.5);}
+    }
+    /* Cartoon side-to-side wobble: each car rocks on its wheels, staggered. */
+    .train-car{transform-box:fill-box;transform-origin:50% 92%;
+      animation:carWobble 0.85s ease-in-out infinite;}
+    .train-car.c1{animation-delay:0.12s;}
+    .train-car.c2{animation-delay:0.24s;}
+    .train-car.c3{animation-delay:0.36s;}
+    @keyframes carWobble{
+      0%,100%{transform:rotate(-2.4deg) translateX(-0.3px);}
+      50%{transform:rotate(2.4deg) translateX(0.3px);}
     }
 
     /* Panel nav */
@@ -428,12 +438,13 @@ const COORDS = {
   nouakchott: [-15.978, 18.086],
   benamera:   [-13.667, 21.233],
   nouadhibou: [-17.035, 20.931],
-  // Choum railway junction — used as the clickable Iron Ore Train marker
-  train:      [-13.067, 21.300],
+  // Choum railway junction (on the rail line) — clickable Iron Ore Train marker
+  train:      [-13.044, 21.299],
 };
 
-// Train route line: Zouérat → Choum → Nouadhibou
-const TRAIN_LINE = [[-12.471, 22.735], [-13.067, 21.300], [-17.035, 20.931]];
+// Real Mauritania Railway path (Zouérat → Choum → Nouadhibou ore terminal),
+// simplified from OpenStreetMap relation 2603116 (SNIM line). Index ~21 is Choum.
+const TRAIN_LINE = [[-12.4851,22.772],[-12.5977,22.7277],[-12.6375,22.7031],[-12.6903,22.6797],[-12.699,22.6719],[-12.7052,22.6348],[-12.6894,22.5587],[-12.6791,22.5377],[-12.6704,22.5],[-12.6688,22.4313],[-12.6827,22.294],[-12.6764,22.2757],[-12.6659,22.2066],[-12.7019,22.0563],[-12.7219,21.9318],[-12.7359,21.9067],[-12.8118,21.723],[-12.8409,21.6865],[-12.9767,21.3969],[-13.0038,21.3731],[-13.0334,21.3087],[-13.044,21.2991],[-13.2391,21.292],[-13.3853,21.2693],[-13.5623,21.2106],[-13.5882,21.197],[-13.6664,21.2002],[-13.8388,21.1861],[-13.8889,21.1936],[-14.1218,21.1947],[-14.1848,21.2065],[-14.2561,21.2113],[-14.2808,21.2206],[-14.4294,21.2433],[-14.5306,21.2679],[-14.748,21.2739],[-14.8533,21.2802],[-14.9256,21.2889],[-15.2563,21.2856],[-15.4615,21.2893],[-15.4968,21.2914],[-15.5188,21.2973],[-15.7581,21.2877],[-15.8037,21.2951],[-15.8281,21.291],[-15.8839,21.296],[-15.998,21.2965],[-16.0771,21.3065],[-16.2356,21.3144],[-16.2993,21.3229],[-16.3348,21.3197],[-16.3917,21.3],[-16.43,21.294],[-16.4818,21.2971],[-16.4992,21.2916],[-16.5401,21.3019],[-16.5931,21.2984],[-16.6176,21.2889],[-16.6385,21.2902],[-16.6502,21.2857],[-16.7759,21.2804],[-16.9066,21.2874],[-16.9211,21.2774],[-16.9314,21.2553],[-16.9499,21.2345],[-16.9904,21.143],[-16.9992,21.0975],[-17.0197,21.0678],[-17.0326,21.0339],[-17.0331,20.9981],[-17.0413,20.9611],[-17.063,20.8969],[-17.0592,20.8709],[-17.0474,20.8522],[-17.0428,20.8334],[-17.0429,20.8182],[-17.051,20.806]];
 
 const MARKERS = [];
 let terrainEnabled = false;
@@ -596,15 +607,28 @@ function addMarkers() {
 
 // ── Animated train sprite ────────────────────────────────────────────────────
 (function initTrainSprite() {
-  const route = TRAIN_LINE; // [zouerat, choum, nouadhibou]
+  const route = TRAIN_LINE; // full real rail path, Zouérat → Nouadhibou
   function lngLatDist(a, b) {
     const dx = (b[0]-a[0])*Math.cos((a[1]+b[1])*Math.PI/360);
     const dy = b[1]-a[1];
     return Math.sqrt(dx*dx+dy*dy);
   }
-  const d01 = lngLatDist(route[0], route[1]);
-  const d12 = lngLatDist(route[1], route[2]);
-  const total = d01 + d12;
+  // Pre-compute per-segment lengths so the train can follow the polyline exactly.
+  const segLen = [];
+  let total = 0;
+  for (let i = 0; i < route.length - 1; i++) { const L = lngLatDist(route[i], route[i+1]); segLen.push(L); total += L; }
+  // Interpolate a [lng,lat] position at fraction `phase` (0..1) along the path.
+  function posAt(phase) {
+    let target = Math.max(0, Math.min(1, phase)) * total;
+    for (let i = 0; i < segLen.length; i++) {
+      if (target <= segLen[i] || i === segLen.length - 1) {
+        const f = segLen[i] ? target / segLen[i] : 0;
+        return [route[i][0] + (route[i+1][0]-route[i][0])*f, route[i][1] + (route[i+1][1]-route[i][1])*f];
+      }
+      target -= segLen[i];
+    }
+    return route[route.length - 1];
+  }
 
   // Build the iron-ore train as an SVG: a diesel locomotive pulling three hopper
   // wagons. `loaded` heaps iron ore on the wagons (Zouérat → Nouadhibou); empty
@@ -623,10 +647,7 @@ function addMarkers() {
           `<line x1="${ox}" y1="12" x2="${ox+20}" y2="12" stroke="#3a342e" stroke-width="0.9"/>`;
       return coupling+body+fill+chassis+wheels;
     };
-    return `<svg width="104" height="34" viewBox="0 0 104 34" xmlns="http://www.w3.org/2000/svg">`+
-      `<defs><linearGradient id="ore" x1="0" y1="0" x2="0" y2="1">`+
-        `<stop offset="0" stop-color="#a85b2b"/><stop offset="1" stop-color="#5a2c10"/></linearGradient></defs>`+
-      wagon(32)+wagon(55)+wagon(78)+
+    const loco = `<g class="train-car c0">`+
       `<rect x="3" y="21" width="26" height="2.4" fill="#15151c"/>`+
       `<rect x="4" y="12" width="15" height="9" rx="1" fill="#3a3a45"/>`+
       `<rect x="19" y="7" width="9" height="14" rx="1" fill="#43434f"/>`+
@@ -637,6 +658,14 @@ function addMarkers() {
       `<circle cx="7.5" cy="25" r="2.7" fill="#0e0a05" stroke="#5a5048" stroke-width="0.7"/>`+
       `<circle cx="14" cy="25" r="2.7" fill="#0e0a05" stroke="#5a5048" stroke-width="0.7"/>`+
       `<circle cx="23" cy="25" r="2.7" fill="#0e0a05" stroke="#5a5048" stroke-width="0.7"/>`+
+    `</g>`;
+    return `<svg width="104" height="34" viewBox="0 0 104 34" xmlns="http://www.w3.org/2000/svg">`+
+      `<defs><linearGradient id="ore" x1="0" y1="0" x2="0" y2="1">`+
+        `<stop offset="0" stop-color="#a85b2b"/><stop offset="1" stop-color="#5a2c10"/></linearGradient></defs>`+
+      `<g class="train-car c1">`+wagon(32)+`</g>`+
+      `<g class="train-car c2">`+wagon(55)+`</g>`+
+      `<g class="train-car c3">`+wagon(78)+`</g>`+
+      loco+
       `<circle class="train-smoke" cx="9.5" cy="8" r="2.1" fill="#b8b1a4"/>`+
       `<circle class="train-smoke s2" cx="9.5" cy="8" r="1.7" fill="#cdc6ba"/>`+
       `<circle class="train-smoke s3" cx="9.5" cy="8" r="1.9" fill="#a59e92"/>`+
@@ -661,7 +690,7 @@ function addMarkers() {
     .setLngLat(route[0])
     .addTo(map);
 
-  const SPEED = 0.00013; // fraction of total route per frame
+  const SPEED = 0.0004; // fraction of total route per frame (slow, leisurely pace)
   let going = 1; // +1 = Zouérat→Nouadhibou (westbound, loaded), -1 = return (empty)
   let phase = 0; // 0..1 along full route
 
@@ -675,17 +704,7 @@ function addMarkers() {
     phase += SPEED * going;
     if (phase >= 1) { phase = 1; going = -1; setLoaded(false); applyDirection(); }
     if (phase <= 0) { phase = 0; going = 1; setLoaded(true);  applyDirection(); }
-
-    const dist = phase * total;
-    let pos;
-    if (dist <= d01) {
-      const frac = dist / d01;
-      pos = [route[0][0]+(route[1][0]-route[0][0])*frac, route[0][1]+(route[1][1]-route[0][1])*frac];
-    } else {
-      const frac = (dist-d01)/d12;
-      pos = [route[1][0]+(route[2][0]-route[1][0])*frac, route[1][1]+(route[2][1]-route[1][1])*frac];
-    }
-    sprite.setLngLat(pos);
+    sprite.setLngLat(posAt(phase));
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
