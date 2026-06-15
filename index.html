@@ -179,6 +179,18 @@
     }
     @keyframes clickRipple { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
 
+    /* ── Sand burst on click ── */
+    @keyframes sandPuff {
+      0%   { transform: translate(0,0) scale(1); opacity: .9; }
+      60%  { opacity: .5; }
+      100% { transform: translate(var(--sb-x),var(--sb-y)) scale(0); opacity: 0; }
+    }
+    .sand-burst-wrap { position: fixed; pointer-events: none; z-index: 9999; }
+    .sand-grain {
+      position: absolute; border-radius: 50%;
+      animation: sandPuff var(--sb-dur) ease-out forwards;
+    }
+
     /* Train terminal dot */
     .mb-train-dot {
       width: 12px; height: 12px; border-radius: 50%;
@@ -573,7 +585,7 @@ const CONFIG = {
   restingZoom:        5.1,
   flyZoom:            7.5,
   flyDuration:        1800,
-  introDuration:      3400,  // Africa → Mauritania on overlay tap
+  introDuration:      7000,  // Africa → Mauritania — slow so user can locate the country
   minZoom:            4.0,
   maxZoom:            14,
 };
@@ -827,7 +839,6 @@ map.on('style.load', () => {
   applyDesertPalette();
   addTrainLayer();
   addOceanShimmer();
-  addCoastlineWave();
   addMarkers();
   updateCategoryCounts();
   // Map stays at the wide Africa view until the overlay is tapped
@@ -913,81 +924,6 @@ function addOceanShimmer() {
     id: 'ocean-shimmer-layer', type: 'fill', source: 'ocean-shimmer',
     paint: { 'fill-color': '#3a8fa8', 'fill-opacity': .05 }
   });
-}
-
-// ── Atlantic coastline wave animation ─────────────────────────────────────────
-// Simplified Mauritanian coastline — Cap Blanc → Senegal border (N→S)
-const COAST_COORDS = [
-  [-17.062, 21.349], [-17.063, 21.200], [-17.056, 21.083],
-  [-17.039, 20.950], [-17.028, 20.810], [-17.046, 20.630],
-  [-17.037, 20.445], [-16.991, 20.226], [-16.952, 20.082],
-  [-16.877, 19.940], [-16.722, 19.816], [-16.600, 19.680],
-  [-16.519, 19.601], [-16.404, 19.474], [-16.292, 19.360],
-  [-16.154, 19.141], [-16.113, 18.961], [-16.140, 18.820],
-  [-16.216, 18.680], [-16.375, 18.490], [-16.470, 18.330],
-  [-16.554, 18.180], [-16.497, 18.001], [-16.385, 17.830],
-  [-16.280, 17.650], [-16.143, 17.420], [-16.050, 17.150],
-];
-
-function addCoastlineWave() {
-  map.addSource('coastline', {
-    type: 'geojson',
-    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: COAST_COORDS } }
-  });
-
-  // Soft background glow
-  map.addLayer({
-    id: 'coast-glow', type: 'line', source: 'coastline',
-    paint: { 'line-color': '#4a9db5', 'line-width': 9, 'line-opacity': .10, 'line-blur': 5 }
-  });
-
-  // Traveling-wave dashed line (marching-ants style — each frame shifts the
-  // dash pattern by half a unit to simulate surf moving along the shore).
-  map.addLayer({
-    id: 'coast-wave', type: 'line', source: 'coastline',
-    paint: {
-      'line-color': '#9fd4e8',
-      'line-width': 1.8,
-      'line-opacity': .75,
-      'line-dasharray': [3, 7],
-    }
-  });
-
-  // Pre-build 20 dasharray "frames" that cycle the 10-unit period (3 dash + 7 gap)
-  const PERIOD = 10;           // dash + gap total
-  const DASH   = 3;
-  const FRAMES = 20;
-  const seqs   = [];
-  for (let i = 0; i < FRAMES; i++) {
-    const offset = (i / FRAMES) * PERIOD; // 0 → 10
-    const d0 = (DASH  - offset % DASH)  % DASH;   // leading partial dash
-    const g0 = (PERIOD - DASH - (offset % (PERIOD - DASH))) % (PERIOD - DASH);
-    // Simple two-value shift: [gap-before-first-dash, dash, gap]
-    const shift = (i / FRAMES) * PERIOD;
-    seqs.push([
-      PERIOD - shift % PERIOD,
-      DASH,
-      Math.max(0, shift % PERIOD - (PERIOD - DASH)),
-    ].filter(v => v > 0));
-  }
-
-  // Fallback: just cycle through 20 evenly shifted [3,7] patterns
-  const dashFrames = Array.from({ length: FRAMES }, (_, i) => {
-    const s = (i / FRAMES) * PERIOD;
-    if (s < DASH) return [DASH - s, PERIOD - DASH, s];
-    return [0, s - DASH, DASH, PERIOD - s];
-  });
-
-  let frame = 0, lastCoastTime = 0;
-  function stepCoast(now) {
-    if (now - lastCoastTime > 80) {   // ~12 fps — enough for smooth wave feel
-      lastCoastTime = now;
-      frame = (frame + 1) % FRAMES;
-      try { map.setPaintProperty('coast-wave', 'line-dasharray', dashFrames[frame]); } catch(e) {}
-    }
-    requestAnimationFrame(stepCoast);
-  }
-  requestAnimationFrame(stepCoast);
 }
 
 // ── Markers with custom SVG icons ─────────────────────────────────────────────
@@ -1333,13 +1269,15 @@ function startMusic() {
 function handleOverlayTap() {
   overlay.style.display = 'none';
   startMusic();
-  // Fly in from Africa overview → Mauritania resting view
+  // Fly in from Africa overview → Mauritania resting view.
+  // ease-in-out quad keeps Africa visible in the first half, then
+  // sweeps in to Mauritania with a smooth landing.
   map.flyTo({
-    center:   CONFIG.center,
-    zoom:     CONFIG.restingZoom,
+    center:    CONFIG.center,
+    zoom:      CONFIG.restingZoom,
     essential: true,
     duration:  CONFIG.introDuration,
-    easing:    cubicOut,
+    easing:    t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2,
   });
   // Once the intro animation settles, constrain the map
   map.once('moveend', () => {
@@ -1361,6 +1299,45 @@ function toggleMusic() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+// ── Sand burst — fires on every click on an interactable element ──────────────
+function sandBurst(cx, cy) {
+  const wrap = document.createElement('div');
+  wrap.className = 'sand-burst-wrap';
+  wrap.style.left = cx + 'px';
+  wrap.style.top  = cy + 'px';
+
+  const N = 12;
+  for (let i = 0; i < N; i++) {
+    const angle   = (i / N) * Math.PI * 2 + (Math.random() - .5) * .8;
+    const dist    = 16 + Math.random() * 28;
+    const size    = 1.8 + Math.random() * 2.6;
+    const dur     = (.32 + Math.random() * .28).toFixed(3);
+    const tx      = (Math.cos(angle) * dist).toFixed(1);
+    const ty      = (Math.sin(angle) * dist).toFixed(1);
+    const opacity = (.5 + Math.random() * .45).toFixed(2);
+
+    const g = document.createElement('div');
+    g.className = 'sand-grain';
+    g.style.cssText = [
+      `width:${size.toFixed(1)}px`, `height:${size.toFixed(1)}px`,
+      `background:rgba(232,200,122,${opacity})`,
+      `--sb-x:${tx}px`, `--sb-y:${ty}px`, `--sb-dur:${dur}s`,
+    ].join(';');
+    wrap.appendChild(g);
+  }
+
+  document.body.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 700);
+}
+
+// Attach to all interactable elements via event delegation — fires on the map,
+// buttons, legend pills, markers, and info panel controls.
+document.addEventListener('click', e => {
+  // Skip the overlay tap (it has its own animation) and map drag-end misclicks
+  if (e.target.closest('#musicOverlay')) return;
+  sandBurst(e.clientX, e.clientY);
+});
 </script>
 </body>
 </html>
