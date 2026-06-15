@@ -409,22 +409,22 @@ const TERRAIN_LOCATIONS = {
 
 // ── Coordinates (lng, lat) ───────────────────────────────────────────────────
 const COORDS = {
-  richat:     [-11.40, 21.12],
-  arguin:     [-16.28, 19.92],
-  chinguetti: [-12.37, 20.45],
-  oualata:    [-7.03,  17.30],
-  atar:       [-13.05, 20.52],
-  terjit:     [-13.50, 20.43],
-  tichit:     [-9.49,  18.45],
-  nouakchott: [-15.98, 18.08],
-  benamera:   [-12.31, 23.21],
-  nouadhibou: [-17.03, 20.93],
-  // train midpoint (Choum) for clickable marker
-  train:      [-15.48, 20.52],
+  richat:     [-11.402, 21.117],
+  arguin:     [-16.404, 20.078],
+  chinguetti: [-12.371, 20.463],
+  oualata:    [-7.030,  17.298],
+  atar:       [-13.050, 20.517],
+  terjit:     [-13.094, 20.254],
+  tichit:     [-9.494,  18.442],
+  nouakchott: [-15.978, 18.086],
+  benamera:   [-13.667, 21.233],
+  nouadhibou: [-17.035, 20.931],
+  // Choum railway junction — used as the clickable Iron Ore Train marker
+  train:      [-13.067, 21.300],
 };
 
-// Train route line
-const TRAIN_LINE = [[-12.47, 22.73], [-15.48, 20.52], [-17.03, 20.93]];
+// Train route line: Zouérat → Choum → Nouadhibou
+const TRAIN_LINE = [[-12.471, 22.735], [-13.067, 21.300], [-17.035, 20.931]];
 
 const MARKERS = [];
 let terrainEnabled = false;
@@ -517,7 +517,7 @@ function addTrainLayer() {
   const dotEl = document.createElement('div');
   dotEl.className = 'mb-train-dot';
   dotEl.onclick = () => openPlace('train');
-  new maplibregl.Marker({ element: dotEl, anchor: 'center' }).setLngLat([-12.47, 22.73]).addTo(map);
+  new maplibregl.Marker({ element: dotEl, anchor: 'center' }).setLngLat([-12.471, 22.735]).addTo(map);
 }
 
 function addOceanShimmer() {
