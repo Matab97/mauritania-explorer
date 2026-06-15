@@ -46,26 +46,41 @@
     }
 
 
-    /* ── Category legend with count badges ── */
-    .legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; padding: 4px 12px; }
+    /* ── Category filter pills (Mapbox-style per-category active colours) ── */
+    .legend {
+      display: flex; justify-content: center; flex-wrap: wrap;
+      gap: 6px; padding: 6px 12px 4px;
+    }
     .legend-item {
-      display: flex; align-items: center; gap: 5px;
-      font-size: .7rem; color: #c8a870; cursor: pointer;
-      padding: 3px 9px; border-radius: 99px;
-      background: rgba(0,0,0,.72); border: 1.5px solid rgba(255,255,255,.1);
-      transition: background .2s, border-color .2s, color .2s;
+      display: flex; align-items: center; gap: 6px;
+      font-size: .72rem; font-weight: 500; letter-spacing: .2px;
+      color: #8a7860; cursor: pointer;
+      padding: 5px 12px; border-radius: 99px;
+      background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1);
+      transition: transform .15s ease, background .2s, border-color .2s, color .2s,
+                  box-shadow .2s;
+      user-select: none;
     }
-    .legend-item:hover, .legend-item.active {
-      border-color: #c0622a; background: rgba(192,98,42,.35); color: var(--gold);
+    .legend-item:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.09);
+      color: var(--sand); border-color: rgba(255,255,255,.2);
     }
-    .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    /* Per-category active state — each gets its own colour */
+    .legend-item.active                    { color: var(--gold);  transform: translateY(-1px); }
+    .legend-item.active[data-cat="all"]    { background: rgba(158,139,110,.3); border-color: #9e8b6e; box-shadow: 0 0 12px rgba(158,139,110,.3); }
+    .legend-item.active[data-cat="nature"] { background: rgba(106,140,79,.3);  border-color: #6a8c4f; box-shadow: 0 0 12px rgba(106,140,79,.3); }
+    .legend-item.active[data-cat="historic"]  { background: rgba(192,98,42,.3);  border-color: #c0622a; box-shadow: 0 0 12px rgba(192,98,42,.3); }
+    .legend-item.active[data-cat="transport"] { background: rgba(74,157,181,.3); border-color: #4a9db5; box-shadow: 0 0 12px rgba(74,157,181,.3); }
+    .legend-item.active[data-cat="city"]   { background: rgba(158,139,110,.3);  border-color: #9e8b6e; box-shadow: 0 0 12px rgba(158,139,110,.3); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transition: transform .2s; }
+    .legend-item.active .legend-dot { transform: scale(1.3); }
     .cat-count {
-      background: rgba(0,0,0,.4); border-radius: 99px;
-      padding: 1px 5px; font-size: .6rem; font-weight: 700;
-      color: var(--stone-dark); min-width: 16px; text-align: center;
-      transition: color .2s;
+      background: rgba(255,255,255,.1); border-radius: 99px;
+      padding: 1px 6px; font-size: .62rem; font-weight: 700;
+      color: #7a6a55; min-width: 18px; text-align: center; transition: color .2s;
     }
-    .legend-item.active .cat-count { color: var(--gold); }
+    .legend-item.active .cat-count { color: var(--gold); background: rgba(0,0,0,.35); }
 
     /* ── Map area ── */
     .map-area { flex: 1; display: flex; min-height: 0; position: relative; }
@@ -75,6 +90,27 @@
     .maplibregl-ctrl-attrib { background: rgba(26,18,8,.7)!important; color: #6b5d42!important; font-size: 9px!important; border-radius: 6px 0 0 0!important; }
     .maplibregl-ctrl-attrib a { color: #9e8b6e!important; }
     .maplibregl-ctrl-bottom-right { bottom: 40px!important; }
+    /* Desert-themed map controls */
+    .maplibregl-ctrl-group {
+      background: rgba(22,14,5,.92) !important;
+      border: 1px solid rgba(232,200,122,.22) !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 14px rgba(0,0,0,.55) !important;
+      overflow: hidden;
+    }
+    .maplibregl-ctrl-group button {
+      background: transparent !important;
+      width: 32px !important; height: 32px !important;
+    }
+    .maplibregl-ctrl-group button + button {
+      border-top: 1px solid rgba(232,200,122,.12) !important;
+    }
+    .maplibregl-ctrl-group button:hover {
+      background: rgba(192,98,42,.28) !important;
+    }
+    .maplibregl-ctrl-icon {
+      filter: invert(75%) sepia(30%) saturate(500%) hue-rotate(10deg) brightness(.95) !important;
+    }
 
     /* ── Custom markers ── */
     /* NOTE: MapLibre positions .mb-marker via an inline `transform`.
@@ -199,14 +235,18 @@
     .inset-dot-ring { animation: insetPulse 2.8s ease-in-out infinite; }
 
     /* ── Panel nav ── */
-    .panel-nav { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px 0; margin-bottom: 4px; }
+    .panel-nav { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 0; margin-bottom: 4px; }
     .nav-btn {
-      background: rgba(255,255,255,.07); border: 1px solid rgba(232,200,122,.2);
-      color: #9a8060; border-radius: 99px; padding: 4px 14px; font-size: .72rem;
-      cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(232,200,122,.18);
+      color: #9a8060; border-radius: 99px; padding: 5px 16px; font-size: .72rem; font-weight: 500;
+      cursor: pointer; transition: background .2s, color .2s, border-color .2s, transform .15s;
+      display: flex; align-items: center; gap: 5px;
     }
-    .nav-btn:hover { background: rgba(192,98,42,.35); color: var(--gold); border-color: var(--terracotta); }
-    .nav-counter { font-size: .68rem; color: #6b5d42; }
+    .nav-btn:hover {
+      background: rgba(192,98,42,.32); color: var(--gold); border-color: var(--terracotta);
+      transform: translateY(-1px);
+    }
+    .nav-counter { font-size: .68rem; color: #6b5d42; letter-spacing: .5px; }
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
@@ -231,16 +271,23 @@
       padding: 5px 12px 10px;
     }
     .music-btn {
-      background: rgba(192,98,42,.5); border: 1.5px solid rgba(192,98,42,.8); color: var(--gold);
-      border-radius: 99px; padding: 6px 18px; font-size: .8rem; font-weight: 600; cursor: pointer;
-      display: flex; align-items: center; gap: 7px; transition: background .2s, transform .2s;
-      white-space: nowrap; box-shadow: 0 2px 12px rgba(192,98,42,.3);
+      background: rgba(192,98,42,.45);
+      border: 1.5px solid rgba(192,98,42,.75); color: var(--gold);
+      border-radius: 99px; padding: 7px 20px; font-size: .8rem; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 7px;
+      transition: background .2s, transform .2s, box-shadow .2s;
+      white-space: nowrap;
+      box-shadow: 0 2px 14px rgba(192,98,42,.28), inset 0 1px 0 rgba(255,255,255,.08);
     }
-    .music-btn:hover { background: rgba(192,98,42,.72); transform: scale(1.03); }
+    .music-btn:hover {
+      background: rgba(192,98,42,.7); transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(192,98,42,.45), inset 0 1px 0 rgba(255,255,255,.1);
+    }
+    .music-btn:active { transform: translateY(0); }
     .music-info {
-      font-size: .78rem; color: var(--gold); font-style: italic;
-      background: rgba(0,0,0,.72); padding: 4px 12px; border-radius: 99px;
-      border: 1px solid rgba(232,200,122,.2);
+      font-size: .78rem; color: var(--sand-dark); font-style: italic;
+      background: rgba(255,255,255,.05); padding: 5px 14px; border-radius: 99px;
+      border: 1px solid rgba(232,200,122,.18);
       max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .music-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--terracotta); flex-shrink: 0; animation: mpulse 1.2s ease-in-out infinite; }
@@ -1214,17 +1261,19 @@ function resizeSand() {
 resizeSand();
 window.addEventListener('resize', resizeSand);
 
-function mkParticle() {
+function mkParticle(small) {
+  // Mix: 60% small grains, 40% larger specks for visible depth
+  const big = !small && Math.random() > .6;
   return {
     x: Math.random() * sandCanvas.width,
     y: Math.random() * sandCanvas.height,
-    vx: .18 + Math.random() * .28,
-    vy: .05 + Math.random() * .15,
-    size: .9 + Math.random() * 1.5,
-    opacity: .18 + Math.random() * .32,
+    vx: (big ? .12 : .22) + Math.random() * .30,
+    vy: (big ? .03 : .06) + Math.random() * .14,
+    size: big ? 2.2 + Math.random() * 1.8 : 1.0 + Math.random() * 1.4,
+    opacity: big ? .35 + Math.random() * .35 : .28 + Math.random() * .32,
   };
 }
-for (let i = 0; i < 20; i++) particles.push(mkParticle());
+for (let i = 0; i < 55; i++) particles.push(mkParticle());
 
 function drawSand() {
   if (!sandPaused && !sandHidden) {
@@ -1239,8 +1288,8 @@ function drawSand() {
       if (p.y > sandCanvas.height + 2) { p.y = -2; p.x = Math.random() * sandCanvas.width;  }
     });
   }
-  // ~25 fps — skip every other frame to cut CPU in half vs rAF at 60 fps
-  setTimeout(() => requestAnimationFrame(drawSand), 40);
+  // ~30 fps
+  setTimeout(() => requestAnimationFrame(drawSand), 33);
 }
 drawSand();
 
