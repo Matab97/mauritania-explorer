@@ -129,14 +129,23 @@
     }
     .mb-train-dot:hover{transform:scale(1.3);}
 
-    /* Animated train sprite */
-    .train-sprite{
-      font-size:20px;cursor:pointer;
-      filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));
-      transition:transform 0.1s;
-      user-select:none;
+    /* Animated iron-ore train sprite */
+    .train-sprite{cursor:pointer;user-select:none;}
+    /* MapLibre positions .train-sprite via an inline transform, so the travel-
+       direction flip lives on the inner .train-dir wrapper to avoid clobbering it. */
+    .train-dir{transition:transform 0.3s ease;transform-origin:center;}
+    .train-sprite svg{display:block;width:62px;height:auto;
+      filter:drop-shadow(0 3px 5px rgba(0,0,0,0.75));transition:transform 0.15s;}
+    .train-sprite:hover svg{transform:scale(1.12);}
+    .train-smoke{transform-box:fill-box;transform-origin:center;
+      animation:trainSmoke 2.1s linear infinite;}
+    .train-smoke.s2{animation-delay:0.7s;}
+    .train-smoke.s3{animation-delay:1.4s;}
+    @keyframes trainSmoke{
+      0%{opacity:0;transform:translate(0,0) scale(0.4);}
+      15%{opacity:0.5;}
+      100%{opacity:0;transform:translate(-5px,-11px) scale(1.5);}
     }
-    .train-sprite:hover{transform:scale(1.3);}
 
     /* Panel nav */
     .panel-nav{
@@ -597,25 +606,75 @@ function addMarkers() {
   const d12 = lngLatDist(route[1], route[2]);
   const total = d01 + d12;
 
+  // Build the iron-ore train as an SVG: a diesel locomotive pulling three hopper
+  // wagons. `loaded` heaps iron ore on the wagons (Zouérat → Nouadhibou); empty
+  // shows open hoppers on the return run (Nouadhibou → Zouérat).
+  function trainSVG(loaded) {
+    const wagon = (ox) => {
+      const coupling = `<rect x="${ox-3}" y="18.5" width="4" height="1.6" fill="#4a4138"/>`;
+      const body = `<path d="M${ox} 12 L${ox+20} 12 L${ox+17} 22 L${ox+3} 22 Z" fill="#2c2824" stroke="#120d07" stroke-width="0.8"/>`;
+      const chassis = `<rect x="${ox+2}" y="22" width="16" height="1.8" fill="#1c150d"/>`;
+      const wheels = `<circle cx="${ox+5}" cy="25" r="2.4" fill="#0e0a05" stroke="#5a5048" stroke-width="0.6"/>`+
+                     `<circle cx="${ox+15}" cy="25" r="2.4" fill="#0e0a05" stroke="#5a5048" stroke-width="0.6"/>`;
+      const fill = loaded
+        ? `<path d="M${ox+1} 12 Q${ox+6} 6.5 ${ox+10} 7.5 Q${ox+14} 6.5 ${ox+19} 12 Z" fill="url(#ore)"/>`+
+          `<circle cx="${ox+6}" cy="9.7" r="1.1" fill="#9a5326"/><circle cx="${ox+11}" cy="9" r="1.2" fill="#a85b2b"/><circle cx="${ox+15}" cy="9.9" r="1" fill="#854720"/>`
+        : `<path d="M${ox+2} 12 L${ox+18} 12 L${ox+15.5} 20 L${ox+4.5} 20 Z" fill="#140f0a"/>`+
+          `<line x1="${ox}" y1="12" x2="${ox+20}" y2="12" stroke="#3a342e" stroke-width="0.9"/>`;
+      return coupling+body+fill+chassis+wheels;
+    };
+    return `<svg width="104" height="34" viewBox="0 0 104 34" xmlns="http://www.w3.org/2000/svg">`+
+      `<defs><linearGradient id="ore" x1="0" y1="0" x2="0" y2="1">`+
+        `<stop offset="0" stop-color="#a85b2b"/><stop offset="1" stop-color="#5a2c10"/></linearGradient></defs>`+
+      wagon(32)+wagon(55)+wagon(78)+
+      `<rect x="3" y="21" width="26" height="2.4" fill="#15151c"/>`+
+      `<rect x="4" y="12" width="15" height="9" rx="1" fill="#3a3a45"/>`+
+      `<rect x="19" y="7" width="9" height="14" rx="1" fill="#43434f"/>`+
+      `<rect x="21" y="9" width="5.2" height="4.2" rx="0.6" fill="#9fd2e2"/>`+
+      `<rect x="4" y="17.6" width="24" height="2" fill="#c0622a"/>`+
+      `<rect x="8" y="9" width="3" height="3.2" fill="#1c1c22"/>`+
+      `<circle cx="5" cy="15.4" r="1.5" fill="#ffe7a0"/>`+
+      `<circle cx="7.5" cy="25" r="2.7" fill="#0e0a05" stroke="#5a5048" stroke-width="0.7"/>`+
+      `<circle cx="14" cy="25" r="2.7" fill="#0e0a05" stroke="#5a5048" stroke-width="0.7"/>`+
+      `<circle cx="23" cy="25" r="2.7" fill="#0e0a05" stroke="#5a5048" stroke-width="0.7"/>`+
+      `<circle class="train-smoke" cx="9.5" cy="8" r="2.1" fill="#b8b1a4"/>`+
+      `<circle class="train-smoke s2" cx="9.5" cy="8" r="1.7" fill="#cdc6ba"/>`+
+      `<circle class="train-smoke s3" cx="9.5" cy="8" r="1.9" fill="#a59e92"/>`+
+    `</svg>`;
+  }
+
   const el = document.createElement('div');
   el.className = 'train-sprite';
-  el.textContent = '🚂';
   el.title = 'Iron Ore Train';
   el.onclick = () => openPlace('train');
+
+  // Inner wrapper carries the direction flip so MapLibre's positioning transform
+  // on `el` is never overwritten.
+  const dirEl = document.createElement('div');
+  dirEl.className = 'train-dir';
+  el.appendChild(dirEl);
+
+  let loaded = true;        // Zouérat → Nouadhibou: wagons full of iron ore
+  dirEl.innerHTML = trainSVG(loaded);
 
   const sprite = new maplibregl.Marker({ element: el, anchor: 'center' })
     .setLngLat(route[0])
     .addTo(map);
 
-  let t = 0;
-  const SPEED = 0.00015; // fraction of total route per frame
-  let going = 1; // 1 = Zouerat→Nouadhibou, -1 = back
+  const SPEED = 0.00013; // fraction of total route per frame
+  let going = 1; // +1 = Zouérat→Nouadhibou (westbound, loaded), -1 = return (empty)
   let phase = 0; // 0..1 along full route
+
+  // Loaded leg travels west (left) and the locomotive is drawn facing left, so no
+  // flip; the empty return travels east, so mirror it to keep the loco in front.
+  function applyDirection() { dirEl.style.transform = going === 1 ? 'scaleX(1)' : 'scaleX(-1)'; }
+  function setLoaded(v) { if (v !== loaded) { loaded = v; dirEl.innerHTML = trainSVG(loaded); } }
+  applyDirection();
 
   function tick() {
     phase += SPEED * going;
-    if (phase >= 1) { phase = 1; going = -1; el.style.transform = 'scaleX(-1)'; }
-    if (phase <= 0) { phase = 0; going = 1; el.style.transform = 'scaleX(1)'; }
+    if (phase >= 1) { phase = 1; going = -1; setLoaded(false); applyDirection(); }
+    if (phase <= 0) { phase = 0; going = 1; setLoaded(true);  applyDirection(); }
 
     const dist = phase * total;
     let pos;
