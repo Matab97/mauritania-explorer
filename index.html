@@ -45,46 +45,6 @@
       100% { left: calc(100% + 40px); opacity: 0; }
     }
 
-    /* ── Search row ── */
-    .search-row {
-      display: flex; align-items: center; justify-content: center; gap: 7px;
-      padding: 4px 12px;
-    }
-    .search-wrap { position: relative; flex: 1; max-width: 260px; }
-    .search-wrap .s-icon {
-      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
-      pointer-events: none; opacity: .45;
-    }
-    .search-input {
-      width: 100%;
-      background: rgba(0,0,0,.72);
-      border: 1.5px solid rgba(232,200,122,.16);
-      color: var(--sand);
-      font-family: 'Inter', sans-serif;
-      font-size: .75rem;
-      padding: 5px 10px 5px 30px;
-      border-radius: 99px;
-      outline: none;
-      transition: border-color .2s, box-shadow .2s;
-    }
-    .search-input::placeholder { color: #6b5d42; }
-    .search-input:focus {
-      border-color: rgba(192,98,42,.6);
-      box-shadow: 0 0 0 2px rgba(192,98,42,.14);
-    }
-
-    /* Reset / clear button */
-    .reset-btn {
-      background: rgba(192,98,42,.22);
-      border: 1.5px solid rgba(192,98,42,.5);
-      color: var(--gold);
-      border-radius: 99px; padding: 4px 11px;
-      font-size: .72rem; cursor: pointer;
-      display: none; align-items: center; gap: 4px;
-      transition: all .2s; white-space: nowrap;
-    }
-    .reset-btn:hover { background: rgba(192,98,42,.42); }
-    .reset-btn.visible { display: inline-flex; }
 
     /* ── Category legend with count badges ── */
     .legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; padding: 4px 12px; }
@@ -262,7 +222,6 @@
       .music-info { font-size: .62rem; max-width: 130px; }
       #ytPlayer { width: 1px; height: 1px; bottom: 0; right: 0; }
       #worldInset { width: 64px; height: 50px; bottom: 42px; }
-      .search-input { font-size: .68rem; }
       .cat-count { display: none; }
     }
 
@@ -433,24 +392,6 @@
       <line x1="90" y1="46" x2="240" y2="46" stroke="url(#lgLine)" stroke-width="1"/>
     </svg>
     <p>Click on any location to discover it</p>
-
-    <!-- Search bar -->
-    <div class="search-row">
-      <div class="search-wrap">
-        <svg class="s-icon" width="13" height="13" viewBox="0 0 24 24" fill="none">
-          <circle cx="11" cy="11" r="7" stroke="#9e8b6e" stroke-width="2"/>
-          <line x1="16.5" y1="16.5" x2="22" y2="22" stroke="#9e8b6e" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <input type="text" class="search-input" id="searchInput" placeholder="Search locations…" autocomplete="off" spellcheck="false"/>
-      </div>
-      <button class="reset-btn" id="resetBtn">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-          <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-        Clear
-      </button>
-    </div>
 
     <!-- Category legend with count badges -->
     <div class="legend" id="legendBar">
@@ -818,8 +759,6 @@ const MARKERS = [];
 let map;
 let currentMarkerEl = null;   // emphasize/deselect pattern
 let currentCat      = 'all';
-let searchTerm      = '';
-let searchTimer     = null;
 
 // ── MapLibre init ─────────────────────────────────────────────────────────────
 map = new maplibregl.Map({
@@ -1162,97 +1101,33 @@ function deselectMarker() {
 })();
 
 // ── Search + filter system (from Mapbox reference pattern) ────────────────────
-const searchInput = document.getElementById('searchInput');
-const resetBtn    = document.getElementById('resetBtn');
-
-searchInput.addEventListener('input', () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    searchTerm = searchInput.value.trim().toLowerCase();
-    applyFilters();
-  }, 180);
-});
-
-resetBtn.addEventListener('click', resetAll);
-
 function updateCategoryCounts() {
   const counts = { all: 0, nature: 0, historic: 0, transport: 0, city: 0 };
   Object.keys(PLACES).forEach(id => {
-    const p = PLACES[id];
-    const matchesCat    = currentCat === 'all' || p.category === currentCat;
-    const matchesSearch = !searchTerm ||
-      p.name.toLowerCase().includes(searchTerm) ||
-      p.subtitle.toLowerCase().includes(searchTerm);
-    if (matchesCat && matchesSearch) {
-      counts.all++;
-      if (counts[p.category] !== undefined) counts[p.category]++;
-    } else if (!matchesCat && matchesSearch) {
-      // count all visible regardless of active cat filter
-    }
+    counts.all++;
+    const cat = PLACES[id].category;
+    if (counts[cat] !== undefined) counts[cat]++;
   });
-
-  // For counts, show how many match the SEARCH within each category
-  const allCounts = { all: 0, nature: 0, historic: 0, transport: 0, city: 0 };
-  Object.keys(PLACES).forEach(id => {
-    const p = PLACES[id];
-    const matchesSearch = !searchTerm ||
-      p.name.toLowerCase().includes(searchTerm) ||
-      p.subtitle.toLowerCase().includes(searchTerm);
-    if (matchesSearch) {
-      allCounts.all++;
-      if (allCounts[p.category] !== undefined) allCounts[p.category]++;
-    }
-  });
-
-  Object.keys(allCounts).forEach(k => {
+  Object.keys(counts).forEach(k => {
     const el = document.getElementById('cnt-' + k);
-    if (el) el.textContent = allCounts[k];
+    if (el) el.textContent = counts[k];
   });
 }
 
 function applyFilters() {
-  updateCategoryCounts();
-
-  const visibleMarkers = [];
-
   MARKERS.forEach(({ id, marker, cat, el }) => {
-    const p = PLACES[id];
-    const matchesCat    = currentCat === 'all' || cat === currentCat;
-    const matchesSearch = !searchTerm ||
-      p.name.toLowerCase().includes(searchTerm) ||
-      p.subtitle.toLowerCase().includes(searchTerm);
-    const show = matchesCat && matchesSearch;
-
-    marker.getElement().style.opacity        = show ? '1'   : '0.07';
-    marker.getElement().style.pointerEvents  = show ? 'all' : 'none';
-
-    // Deselect emphasized marker if it's now hidden
+    const show = currentCat === 'all' || cat === currentCat;
+    marker.getElement().style.opacity       = show ? '1'   : '0.07';
+    marker.getElement().style.pointerEvents = show ? 'all' : 'none';
     if (!show && currentMarkerEl === el) deselectMarker();
-    if (show) visibleMarkers.push(marker);
   });
 
   // Train line visibility
-  const trainShow = (currentCat === 'all' || currentCat === 'transport') &&
-    (!searchTerm || 'iron ore train'.includes(searchTerm));
+  const trainShow = currentCat === 'all' || currentCat === 'transport';
   try {
     map.setPaintProperty('train-line', 'line-opacity', trainShow ? .8 : .04);
     map.setPaintProperty('train-bg',   'line-opacity', trainShow ? .18 : .02);
   } catch(e) {}
-
-  // Reset button visibility
-  const hasFilter = currentCat !== 'all' || searchTerm.length > 0;
-  resetBtn.classList.toggle('visible', hasFilter);
-
-  // Fit bounds to visible markers when searching (from Mapbox reference)
-  if (searchTerm.length > 0) {
-    if (visibleMarkers.length === 1) {
-      fly({ center: visibleMarkers[0].getLngLat(), zoom: CONFIG.flyZoom });
-    } else if (visibleMarkers.length > 1 && visibleMarkers.length < 9) {
-      const bounds = new maplibregl.LngLatBounds();
-      visibleMarkers.forEach(m => bounds.extend(m.getLngLat()));
-      map.fitBounds(bounds, { padding: 90, duration: 1800, maxZoom: 9, easing: cubicOut });
-    }
-  }
 }
 
 function filterCat(el, cat) {
@@ -1263,8 +1138,6 @@ function filterCat(el, cat) {
 }
 
 function resetAll() {
-  searchInput.value = '';
-  searchTerm = '';
   currentCat = 'all';
   document.querySelectorAll('.legend-item').forEach((e, i) => e.classList.toggle('active', i === 0));
   deselectMarker();
