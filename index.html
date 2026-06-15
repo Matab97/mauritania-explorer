@@ -574,7 +574,10 @@ function addMarkers() {
       openPlace(id);
     };
 
-    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+    // Center anchor keeps the circular badge centred on its real coordinate so it
+    // does not float north of the point (which made border-adjacent markers like
+    // Ben Amera appear to spill across the Mauritania–Western Sahara border).
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat(coord)
       .addTo(map);
 
