@@ -4,315 +4,463 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mauritania Explorer</title>
+  <meta name="description" content="An interactive explorer of Mauritania's most remarkable places — from the Eye of the Sahara to the Iron Ore Train."/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet"/>
   <style>
-    :root{
-      --sand:#e8d5a3;--sand-dark:#c9b07a;--sand-light:#f5ead0;
-      --terracotta:#c0622a;--terracotta-dark:#8b4115;
-      --ink:#1a1208;--stone:#9e8b6e;--stone-dark:#6b5d42;--gold:#e8c87a;
+    /* ── Design tokens ── */
+    :root {
+      --sand: #e8d5a3; --sand-dark: #c9b07a; --sand-light: #f5ead0;
+      --terracotta: #c0622a; --terracotta-dark: #8b4115;
+      --ink: #1a1208; --stone: #9e8b6e; --stone-dark: #6b5d42; --gold: #e8c87a;
+      --teal: #4a9db5;
+      --col-nature: #6a8c4f; --col-historic: #c0622a;
+      --col-transport: #4a9db5; --col-city: #9e8b6e;
     }
-    *{margin:0;padding:0;box-sizing:border-box;}
-    html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:#1a1208;}
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--ink); }
 
-    /* Sand particle canvas — fixed behind everything */
-    #sandCanvas{position:fixed;inset:0;z-index:2;pointer-events:none;}
+    /* ── Sand particle canvas ── */
+    #sandCanvas { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 
-    /* Heat shimmer overlay */
-    #shimmer{
-      position:fixed;inset:0;pointer-events:none;z-index:3;
-      background:linear-gradient(180deg,
-        rgba(232,200,122,0) 0%,
-        rgba(232,200,122,0.04) 40%,
-        rgba(232,200,122,0.07) 50%,
-        rgba(232,200,122,0.04) 60%,
-        rgba(232,200,122,0) 100%);
-      animation:shimmer 5s ease-in-out infinite;
-    }
-    @keyframes shimmer{
-      0%,100%{transform:scaleY(1) translateY(0);opacity:0.5;}
-      30%{transform:scaleY(1.003) translateY(-1.5px);opacity:0.85;}
-      70%{transform:scaleY(0.998) translateY(1px);opacity:0.35;}
-    }
-
-    #app{position:relative;z-index:4;width:100%;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+    /* ── App shell ── */
+    #app { position: relative; z-index: 4; width: 100%; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
     /* ── Header ── */
-    header{flex-shrink:0;text-align:center;padding:10px 16px 5px;position:relative;}
-    .logo-svg{display:block;margin:0 auto 2px;}
-    header p{font-size:0.7rem;color:#b09060;margin-top:1px;letter-spacing:0.5px;}
+    header { flex-shrink: 0; text-align: center; padding: 10px 16px 5px; position: relative; }
+    .logo-svg { display: block; margin: 0 auto 3px; }
+    header > p { font-size: .7rem; color: #b09060; margin-top: 1px; letter-spacing: .5px; }
 
-    .legend{display:flex;justify-content:center;flex-wrap:wrap;gap:5px;padding:4px 12px;}
-    .legend-item{display:flex;align-items:center;gap:5px;font-size:0.7rem;color:#c8a870;cursor:pointer;
-      padding:3px 9px;border-radius:99px;background:rgba(0,0,0,0.55);border:1.5px solid rgba(255,255,255,0.1);
-      transition:all 0.2s;backdrop-filter:blur(6px);}
-    .legend-item:hover,.legend-item.active{border-color:#c0622a;background:rgba(192,98,42,0.35);color:var(--gold);}
-    .legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    /* Camel walking across header bottom edge */
+    .header-camel {
+      position: absolute; bottom: 0; left: -40px;
+      font-size: 1.1rem; opacity: .3; pointer-events: none;
+      animation: camelWalk 22s linear infinite;
+    }
+    @keyframes camelWalk {
+      0%   { left: -40px; opacity: 0; }
+      4%   { opacity: .3; }
+      96%  { opacity: .3; }
+      100% { left: calc(100% + 40px); opacity: 0; }
+    }
+
+
+    /* ── Category filter pills (Mapbox-style per-category active colours) ── */
+    .legend {
+      display: flex; justify-content: center; flex-wrap: wrap;
+      gap: 6px; padding: 6px 12px 4px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: .72rem; font-weight: 500; letter-spacing: .2px;
+      color: #8a7860; cursor: pointer;
+      padding: 5px 12px; border-radius: 99px;
+      background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1);
+      transition: transform .15s ease, background .2s, border-color .2s, color .2s,
+                  box-shadow .2s;
+      user-select: none;
+    }
+    .legend-item:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.09);
+      color: var(--sand); border-color: rgba(255,255,255,.2);
+    }
+    /* Per-category active state — each gets its own colour */
+    .legend-item.active                    { color: var(--gold);  transform: translateY(-1px); }
+    .legend-item.active[data-cat="all"]    { background: rgba(158,139,110,.3); border-color: #9e8b6e; box-shadow: 0 0 12px rgba(158,139,110,.3); }
+    .legend-item.active[data-cat="nature"] { background: rgba(106,140,79,.3);  border-color: #6a8c4f; box-shadow: 0 0 12px rgba(106,140,79,.3); }
+    .legend-item.active[data-cat="historic"]  { background: rgba(192,98,42,.3);  border-color: #c0622a; box-shadow: 0 0 12px rgba(192,98,42,.3); }
+    .legend-item.active[data-cat="transport"] { background: rgba(74,157,181,.3); border-color: #4a9db5; box-shadow: 0 0 12px rgba(74,157,181,.3); }
+    .legend-item.active[data-cat="city"]   { background: rgba(158,139,110,.3);  border-color: #9e8b6e; box-shadow: 0 0 12px rgba(158,139,110,.3); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transition: transform .2s; }
+    .legend-item.active .legend-dot { transform: scale(1.3); }
+    .cat-count {
+      background: rgba(255,255,255,.1); border-radius: 99px;
+      padding: 1px 6px; font-size: .62rem; font-weight: 700;
+      color: #7a6a55; min-width: 18px; text-align: center; transition: color .2s;
+    }
+    .legend-item.active .cat-count { color: var(--gold); background: rgba(0,0,0,.35); }
 
     /* ── Map area ── */
-    .map-area{flex:1;display:flex;min-height:0;position:relative;}
-    #map{width:100%;height:100%;}
+    .map-area { flex: 1; display: flex; min-height: 0; position: relative; }
+    #map { width: 100%; height: 100%; }
 
-    /* MapLibre attribution — styled to blend */
-    .maplibregl-ctrl-attrib{
-      background:rgba(26,18,8,0.7)!important;
-      color:#6b5d42!important;
-      font-size:9px!important;
-      border-radius:6px 0 0 0!important;
+    /* MapLibre attribution */
+    .maplibregl-ctrl-attrib { background: rgba(26,18,8,.7)!important; color: #6b5d42!important; font-size: 9px!important; border-radius: 6px 0 0 0!important; }
+    .maplibregl-ctrl-attrib a { color: #9e8b6e!important; }
+    .maplibregl-ctrl-bottom-right { bottom: 40px!important; }
+    /* Desert-themed map controls */
+    .maplibregl-ctrl-group {
+      background: rgba(22,14,5,.92) !important;
+      border: 1px solid rgba(232,200,122,.22) !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 14px rgba(0,0,0,.55) !important;
+      overflow: hidden;
     }
-    .maplibregl-ctrl-attrib a{color:#9e8b6e!important;}
-    .maplibregl-ctrl-bottom-right{bottom:36px!important;}
+    .maplibregl-ctrl-group button {
+      background: transparent !important;
+      width: 32px !important; height: 32px !important;
+    }
+    .maplibregl-ctrl-group button + button {
+      border-top: 1px solid rgba(232,200,122,.12) !important;
+    }
+    .maplibregl-ctrl-group button:hover {
+      background: rgba(192,98,42,.28) !important;
+    }
+    .maplibregl-ctrl-icon {
+      filter: invert(75%) sepia(30%) saturate(500%) hue-rotate(10deg) brightness(.95) !important;
+    }
 
-    /* ── Markers ── */
-    /* NOTE: MapLibre positions this root element via an inline `transform`.
-       Do NOT set `transform`/`position`/`animation` here or the marker will
-       detach from its map coordinates. Layout + entrance animation live on the
-       inner wrapper instead. */
-    .mb-marker{
-      cursor:pointer;
+    /* ── Custom markers ── */
+    /* NOTE: MapLibre positions .mb-marker via an inline `transform`.
+       Do NOT set transform/position/animation here — those live on the
+       inner wrapper so MapLibre's positioning is never clobbered. */
+    .mb-marker { cursor: pointer; }
+    .mb-marker-inner {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      animation: markerDrop .4s cubic-bezier(.34,1.56,.64,1) both;
     }
-    .mb-marker-inner{
-      display:flex;flex-direction:column;align-items:center;gap:2px;
-      animation:markerDrop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    @keyframes markerDrop {
+      from { transform: translateY(-24px) scale(.3); opacity: 0; }
+      to   { transform: translateY(0) scale(1); opacity: 1; }
     }
-    @keyframes markerDrop{
-      from{transform:translateY(-20px) scale(0.3);opacity:0;}
-      to{transform:translateY(0) scale(1);opacity:1;}
+    .mb-icon {
+      width: 42px; height: 42px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid rgba(255,255,255,.22);
+      box-shadow: 0 3px 14px rgba(0,0,0,.65);
+      transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+      background: #140c04;
+      position: relative;
+      will-change: transform;
     }
-    .mb-icon{
-      position:relative;
-      width:38px;height:38px;border-radius:50%;
-      display:flex;align-items:center;justify-content:center;
-      font-size:18px;
-      border:2px solid rgba(255,255,255,0.25);
-      box-shadow:0 3px 14px rgba(0,0,0,0.6);
-      transition:transform 0.15s,box-shadow 0.15s;
-      background:rgba(26,18,8,0.85);
-      backdrop-filter:blur(4px);
-    }
-    .mb-marker:hover .mb-icon{transform:scale(1.18);box-shadow:0 5px 20px rgba(0,0,0,0.8);}
-    .mb-label{
-      font-size:9px;font-weight:600;letter-spacing:0.3px;
-      color:#e8d5a3;text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.9);
-      white-space:nowrap;pointer-events:none;
-    }
-    /* Category border colors */
-    .mb-marker[data-cat="nature"] .mb-icon{border-color:#6a8c4f;}
-    .mb-marker[data-cat="historic"] .mb-icon{border-color:#c0622a;}
-    .mb-marker[data-cat="transport"] .mb-icon{border-color:#4a9db5;}
-    .mb-marker[data-cat="city"] .mb-icon{border-color:#9e8b6e;}
+    .mb-icon svg { width: 22px; height: 22px; display: block; }
+    .mb-marker:hover .mb-icon { transform: scale(1.18); box-shadow: 0 6px 22px rgba(0,0,0,.85); }
 
-    /* Pulsing ring for Nouakchott (capital) */
-    .mb-marker[data-id="nouakchott"] .mb-icon::after{
-      content:'';position:absolute;inset:-6px;border-radius:50%;
-      border:1.5px solid rgba(158,139,110,0.5);
-      animation:ringPulse 2s ease-in-out infinite;
+    /* Emphasize state (from Mapbox reference pattern) */
+    .mb-marker.emphasized .mb-icon {
+      transform: scale(1.38);
+      border-width: 2.5px;
     }
-    @keyframes ringPulse{0%,100%{transform:scale(1);opacity:0.6;}50%{transform:scale(1.2);opacity:0.2;}}
+    .mb-marker.emphasized .mb-label { color: var(--gold); font-weight: 700; }
+
+    /* Category border + glow colors */
+    .mb-marker[data-cat="nature"]    .mb-icon { border-color: var(--col-nature); }
+    .mb-marker[data-cat="historic"]  .mb-icon { border-color: var(--col-historic); }
+    .mb-marker[data-cat="transport"] .mb-icon { border-color: var(--col-transport); }
+    .mb-marker[data-cat="city"]      .mb-icon { border-color: var(--col-city); }
+
+    /* Per-category glow when emphasized */
+    .mb-marker.emphasized[data-cat="nature"]    .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(106,140,79,.55); }
+    .mb-marker.emphasized[data-cat="historic"]  .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(192,98,42,.55); }
+    .mb-marker.emphasized[data-cat="transport"] .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(74,157,181,.55); }
+    .mb-marker.emphasized[data-cat="city"]      .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(158,139,110,.55); }
+
+    .mb-label {
+      font-size: 9px; font-weight: 600; letter-spacing: .3px;
+      color: var(--sand); text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.9);
+      white-space: nowrap; pointer-events: none; transition: color .2s;
+    }
+
+    /* Capital pulsing ring */
+    .mb-marker[data-id="nouakchott"] .mb-icon::after {
+      content: ''; position: absolute; inset: -7px; border-radius: 50%;
+      border: 1.5px solid rgba(158,139,110,.5);
+      animation: ringPulse 2s ease-in-out infinite;
+    }
+    @keyframes ringPulse { 0%,100% { transform: scale(1); opacity: .6; } 50% { transform: scale(1.2); opacity: .15; } }
 
     /* Click ripple */
-    .mb-marker.clicked .mb-icon::before{
-      content:'';position:absolute;inset:-4px;border-radius:50%;
-      background:rgba(232,200,122,0.35);
-      animation:clickRipple 0.55s ease-out forwards;
+    .mb-marker.clicked .mb-icon::before {
+      content: ''; position: absolute; inset: -4px; border-radius: 50%;
+      background: rgba(232,200,122,.35);
+      animation: clickRipple .55s ease-out forwards;
     }
-    @keyframes clickRipple{from{transform:scale(1);opacity:0.9;}to{transform:scale(3.2);opacity:0;}}
+    @keyframes clickRipple { from { transform: scale(1); opacity: .9; } to { transform: scale(3.2); opacity: 0; } }
 
-    /* Train line marker */
-    .mb-train-dot{
-      width:12px;height:12px;border-radius:50%;
-      background:#4a9db5;border:2px solid rgba(255,255,255,0.6);
-      box-shadow:0 2px 8px rgba(0,0,0,0.5);
-      cursor:pointer;
-      transition:transform 0.15s;
+    /* Train terminal dot */
+    .mb-train-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--col-transport); border: 2px solid rgba(255,255,255,.6);
+      box-shadow: 0 2px 8px rgba(0,0,0,.5);
+      cursor: pointer; transition: transform .15s;
     }
-    .mb-train-dot:hover{transform:scale(1.3);}
+    .mb-train-dot:hover { transform: scale(1.3); }
 
-    /* Animated iron-ore train sprite */
-    .train-sprite{cursor:pointer;user-select:none;}
-    /* MapLibre positions .train-sprite via an inline transform, so the travel-
-       direction flip lives on the inner .train-dir wrapper to avoid clobbering it. */
-    .train-dir{transition:transform 0.3s ease;transform-origin:center;}
-    .train-sprite svg{display:block;width:76px;height:auto;
-      filter:drop-shadow(0 3px 5px rgba(0,0,0,0.75));transition:transform 0.15s;}
-    .train-sprite:hover svg{transform:scale(1.12);}
-    .train-smoke{transform-box:fill-box;transform-origin:center;
-      animation:trainSmoke 2.1s linear infinite;}
-    .train-smoke.s2{animation-delay:0.7s;}
-    .train-smoke.s3{animation-delay:1.4s;}
-    @keyframes trainSmoke{
-      0%{opacity:0;transform:translate(0,0) scale(0.4);}
-      15%{opacity:0.5;}
-      100%{opacity:0;transform:translate(-5px,-11px) scale(1.5);}
+    /* Animated iron-ore train sprite (MapLibre positions via inline transform —
+       direction flip lives on the inner .train-dir to avoid clobbering it) */
+    .train-sprite { cursor: pointer; user-select: none; }
+    .train-dir { transition: transform .3s ease; transform-origin: center; }
+    .train-sprite svg { display: block; width: 76px; height: auto;
+      filter: drop-shadow(0 3px 5px rgba(0,0,0,.75)); transition: transform .15s; }
+    .train-sprite:hover svg { transform: scale(1.12); }
+    .train-smoke { transform-box: fill-box; transform-origin: center;
+      animation: trainSmoke 2.2s ease-out infinite; }
+    .train-smoke.s2 { animation-delay: .75s; }
+    .train-smoke.s3 { animation-delay: 1.5s; }
+    @keyframes trainSmoke {
+      0%   { opacity: 0;  transform: translate(0,0)    scale(.4); }
+      18%  { opacity: .45; }
+      100% { opacity: 0;  transform: translate(-4px,-10px) scale(1.4); }
     }
-    /* Cartoon side-to-side wobble: each car rocks on its wheels, staggered. */
-    .train-car{transform-box:fill-box;transform-origin:50% 92%;
-      animation:carWobble 0.85s ease-in-out infinite;}
-    .train-car.c1{animation-delay:0.12s;}
-    .train-car.c2{animation-delay:0.24s;}
-    .train-car.c3{animation-delay:0.36s;}
-    @keyframes carWobble{
-      0%,100%{transform:rotate(-2.4deg) translateX(-0.3px);}
-      50%{transform:rotate(2.4deg) translateX(0.3px);}
+    .train-car { transform-box: fill-box; transform-origin: 50% 92%;
+      animation: carWobble .85s ease-in-out infinite; }
+    .train-car.c1 { animation-delay: .12s; }
+    .train-car.c2 { animation-delay: .24s; }
+    .train-car.c3 { animation-delay: .36s; }
+    @keyframes carWobble {
+      0%,100% { transform: rotate(-2.4deg) translateX(-.3px); }
+      50%     { transform: rotate(2.4deg)  translateX(.3px);  }
     }
 
-    /* Panel nav */
-    .panel-nav{
-      display:flex;justify-content:space-between;align-items:center;
-      padding:8px 16px 0;margin-bottom:4px;
+    /* ── World inset map ── */
+    #worldInset {
+      position: fixed; bottom: 48px; left: 12px; z-index: 20;
+      width: 84px; height: 64px;
+      background: rgba(10,6,2,.9);
+      border: 1px solid rgba(232,200,122,.2);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 14px rgba(0,0,0,.55);
     }
-    .nav-btn{
-      background:rgba(255,255,255,0.07);border:1px solid rgba(232,200,122,0.2);
-      color:#9a8060;border-radius:99px;padding:3px 12px;font-size:0.72rem;
-      cursor:pointer;transition:all 0.2s;
+    .inset-label {
+      position: absolute; bottom: 3px; left: 0; right: 0;
+      text-align: center; font-size: 6.5px; color: #6b5d42;
+      letter-spacing: .8px; font-weight: 700;
+      pointer-events: none; text-transform: uppercase;
     }
-    .nav-btn:hover{background:rgba(192,98,42,0.35);color:var(--gold);border-color:#c0622a;}
-    .nav-counter{font-size:0.68rem;color:#6b5d42;}
+    /* Pulsing dot on inset */
+    @keyframes insetPulse { 0%,100% { opacity: .6; r: 3px; } 50% { opacity: .2; r: 5px; } }
+    .inset-dot-ring { animation: insetPulse 2.8s ease-in-out infinite; }
 
-    /* ── Phone layout ── */
-    @media(max-width:640px){
-      #app{height:100dvh;}
-      header{padding:5px 10px 2px;}
-      .logo-svg{height:36px!important;}
-      header p{display:none;}
-      .legend{gap:3px;padding:2px 8px;}
-      .legend-item{font-size:0.58rem;padding:2px 6px;}
-      .legend-dot{width:7px;height:7px;}
-      .music-bar{padding:3px 10px 6px;gap:6px;}
-      .music-btn{font-size:0.7rem;padding:4px 12px;}
-      .music-info{font-size:0.62rem;max-width:130px;}
-      #ytPlayer{width:1px;height:1px;bottom:0;right:0;}
+    /* ── Panel nav ── */
+    .panel-nav { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 0; margin-bottom: 4px; }
+    .nav-btn {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(232,200,122,.18);
+      color: #9a8060; border-radius: 99px; padding: 5px 16px; font-size: .72rem; font-weight: 500;
+      cursor: pointer; transition: background .2s, color .2s, border-color .2s, transform .15s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .nav-btn:hover {
+      background: rgba(192,98,42,.32); color: var(--gold); border-color: var(--terracotta);
+      transform: translateY(-1px);
+    }
+    .nav-counter { font-size: .68rem; color: #6b5d42; letter-spacing: .5px; }
+
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      #app { height: 100dvh; }
+      header { padding: 5px 10px 2px; }
+      .logo-svg { height: 36px!important; }
+      header > p { display: none; }
+      .legend { gap: 3px; padding: 2px 8px; }
+      .legend-item { font-size: .58rem; padding: 2px 6px; }
+      .legend-dot { width: 7px; height: 7px; }
+      .music-bar { padding: 3px 10px 6px; gap: 6px; }
+      .music-btn { font-size: .7rem; padding: 4px 12px; }
+      .music-info { font-size: .62rem; max-width: 130px; }
+      #ytPlayer { width: 1px; height: 1px; bottom: 0; right: 0; }
+      #worldInset { width: 64px; height: 50px; bottom: 42px; }
+      .cat-count { display: none; }
     }
 
     /* ── Music bar ── */
-    .music-bar{
-      flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;
-      padding:5px 12px 10px;
+    .music-bar {
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 5px 12px 10px;
     }
-    .music-btn{
-      background:rgba(192,98,42,0.45);border:1.5px solid rgba(192,98,42,0.8);color:var(--gold);
-      border-radius:99px;padding:6px 18px;font-size:0.8rem;font-weight:600;cursor:pointer;
-      display:flex;align-items:center;gap:7px;transition:all 0.2s;backdrop-filter:blur(4px);
-      white-space:nowrap;box-shadow:0 2px 12px rgba(192,98,42,0.3);
+    .music-btn {
+      background: rgba(192,98,42,.45);
+      border: 1.5px solid rgba(192,98,42,.75); color: var(--gold);
+      border-radius: 99px; padding: 7px 20px; font-size: .8rem; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 7px;
+      transition: background .2s, transform .2s, box-shadow .2s;
+      white-space: nowrap;
+      box-shadow: 0 2px 14px rgba(192,98,42,.28), inset 0 1px 0 rgba(255,255,255,.08);
     }
-    .music-btn:hover{background:rgba(192,98,42,0.65);transform:scale(1.03);}
-    .music-info{
-      font-size:0.78rem;color:var(--gold);font-style:italic;
-      background:rgba(0,0,0,0.45);padding:4px 12px;border-radius:99px;
-      border:1px solid rgba(232,200,122,0.2);backdrop-filter:blur(6px);
-      max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    .music-btn:hover {
+      background: rgba(192,98,42,.7); transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(192,98,42,.45), inset 0 1px 0 rgba(255,255,255,.1);
     }
-    .music-pulse{width:8px;height:8px;border-radius:50%;background:#c0622a;flex-shrink:0;animation:mpulse 1.2s ease-in-out infinite;}
-    @keyframes mpulse{0%,100%{opacity:0.4;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}
+    .music-btn:active { transform: translateY(0); }
+    .music-info {
+      font-size: .78rem; color: var(--sand-dark); font-style: italic;
+      background: rgba(255,255,255,.05); padding: 5px 14px; border-radius: 99px;
+      border: 1px solid rgba(232,200,122,.18);
+      max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .music-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--terracotta); flex-shrink: 0; animation: mpulse 1.2s ease-in-out infinite; }
+    @keyframes mpulse { 0%,100% { opacity: .4; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.2); } }
 
-    #ytPlayer{
-      position:fixed;bottom:0;right:0;width:1px;height:1px;
-      overflow:hidden;opacity:0.01;z-index:1;display:block;
-    }
-    #ytPlayer iframe{width:1px;height:1px;border:none;display:block;}
+    #ytPlayer { position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; overflow: hidden; opacity: .01; z-index: 1; display: block; }
+    #ytPlayer iframe { width: 1px; height: 1px; border: none; display: block; }
 
-    /* iOS tap-to-start overlay */
-    #musicOverlay{
-      position:fixed;inset:0;z-index:60;
-      background:rgba(10,6,2,0.85);
-      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
-      backdrop-filter:blur(8px);cursor:pointer;
+    /* ── iOS tap-to-start overlay ── */
+    #musicOverlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(8,4,1,.96);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      cursor: pointer; overflow: hidden;
     }
-    #musicOverlay .overlay-emoji{font-size:3rem;}
-    #musicOverlay h2{font-family:'Amiri',serif;color:var(--gold);font-size:1.5rem;text-align:center;}
-    #musicOverlay p{color:#9a8060;font-size:0.85rem;text-align:center;max-width:260px;line-height:1.5;}
-    #musicOverlay .tap-btn{
-      background:rgba(192,98,42,0.5);border:2px solid #c0622a;color:var(--gold);
-      border-radius:99px;padding:10px 28px;font-size:1rem;font-weight:600;
-      margin-top:8px;animation:pulse-btn 1.8s ease-in-out infinite;
+    /* Dune silhouette at bottom */
+    .overlay-dunes {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 90px; pointer-events: none; display: block;
     }
-    @keyframes pulse-btn{0%,100%{box-shadow:0 0 0 0 rgba(192,98,42,0.4);}50%{box-shadow:0 0 0 12px rgba(192,98,42,0);}}
+    /* Star field on overlay */
+    .overlay-stars {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        radial-gradient(1px 1px at 10% 20%, rgba(232,200,122,.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 30% 10%, rgba(232,200,122,.15) 0%, transparent 100%),
+        radial-gradient(1px 1px at 60% 8%,  rgba(232,200,122,.18) 0%, transparent 100%),
+        radial-gradient(1px 1px at 80% 15%, rgba(232,200,122,.12) 0%, transparent 100%),
+        radial-gradient(1px 1px at 50% 25%, rgba(232,200,122,.1) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 90% 10%, rgba(232,200,122,.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 20% 45%, rgba(232,200,122,.08) 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 40%, rgba(232,200,122,.1) 0%, transparent 100%);
+    }
+    .overlay-camel {
+      font-size: 2.4rem;
+      animation: camelBob 2s ease-in-out infinite;
+      filter: drop-shadow(0 4px 14px rgba(192,98,42,.5));
+      position: relative; z-index: 1;
+    }
+    @keyframes camelBob {
+      0%,100% { transform: translateY(0); }
+      40%     { transform: translateY(-5px); }
+      60%     { transform: translateY(-3px); }
+    }
+    #musicOverlay h2 { font-family: 'Amiri', serif; color: var(--gold); font-size: 1.6rem; text-align: center; position: relative; z-index: 1; }
+    #musicOverlay p  { color: #9a8060; font-size: .85rem; text-align: center; max-width: 260px; line-height: 1.5; position: relative; z-index: 1; }
+    .tap-btn {
+      background: rgba(192,98,42,.5); border: 2px solid var(--terracotta); color: var(--gold);
+      border-radius: 99px; padding: 10px 30px; font-size: 1rem; font-weight: 600;
+      animation: pulse-btn 1.8s ease-in-out infinite; cursor: pointer;
+      position: relative; z-index: 1; display: flex; align-items: center; gap: 8px;
+    }
+    @keyframes pulse-btn { 0%,100% { box-shadow: 0 0 0 0 rgba(192,98,42,.4); } 50% { box-shadow: 0 0 0 14px rgba(192,98,42,0); } }
 
-    /* ── Info Panel ── */
-    .panel-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:40;backdrop-filter:blur(3px);}
-    .panel-backdrop.open{display:block;}
-    .info-panel{position:fixed;right:-420px;top:0;width:360px;max-width:96vw;height:100vh;
-      background:linear-gradient(160deg,#2a1a0a,#1a1005);
-      border-left:1px solid rgba(232,200,122,0.2);
-      z-index:50;overflow-y:auto;transition:right 0.35s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;}
-    .info-panel.open{right:0;}
-    @media(max-width:640px){
-      .info-panel{right:auto;left:0;bottom:-100%;top:auto;width:100%;height:82vh;
-        border-left:none;border-top:1px solid rgba(232,200,122,0.2);border-radius:20px 20px 0 0;
-        transition:bottom 0.35s cubic-bezier(0.4,0,0.2,1);}
-      .info-panel.open{bottom:0;}
+    /* ── Info panel ── */
+    .panel-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 40; }
+    .panel-backdrop.open { display: block; }
+    .info-panel {
+      position: fixed; right: -420px; top: 0; width: 360px; max-width: 96vw; height: 100vh;
+      background: linear-gradient(160deg, #2a1a0a, #1a1005);
+      border-left: 1px solid rgba(232,200,122,.2);
+      z-index: 50; overflow-y: auto; transition: right .35s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column;
     }
-    .panel-hero-ph{width:100%;height:155px;display:flex;align-items:center;justify-content:center;font-size:4.5rem;}
-    .panel-close{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;
-      background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#bbb;font-size:0.85rem;
-      cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;}
-    .panel-body{padding:16px;flex:1;}
-    .panel-cat{display:inline-block;font-size:0.67rem;font-weight:600;text-transform:uppercase;
-      letter-spacing:1px;padding:2px 9px;border-radius:99px;margin-bottom:6px;}
-    .panel-title{font-family:'Amiri',serif;font-size:1.55rem;color:var(--gold);margin-bottom:3px;}
-    .panel-sub{font-size:0.78rem;color:#9a8060;margin-bottom:10px;}
-    .panel-desc{font-size:0.83rem;line-height:1.65;color:#c8b090;margin-bottom:14px;}
-    .panel-facts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;}
-    .fact-card{background:rgba(255,255,255,0.05);border:1px solid rgba(232,200,122,0.15);border-radius:8px;padding:8px 10px;}
-    .fact-label{font-size:0.63rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#8a7050;margin-bottom:1px;}
-    .fact-value{font-size:0.83rem;font-weight:600;color:var(--gold);}
-    .panel-links{display:flex;flex-direction:column;gap:7px;}
-    .link-btn{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;text-decoration:none;
-      font-size:0.8rem;font-weight:500;transition:all 0.2s;border:1.5px solid transparent;}
-    .link-btn:hover{transform:translateX(4px);}
-    .link-instagram{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:white;}
-    .link-youtube{background:#ff0000;color:white;}
-    .link-wiki{background:rgba(255,255,255,0.9);color:#1a1208;border-color:rgba(200,160,80,0.4);}
-    .link-google{background:#4285f4;color:white;}
-    .link-maps{background:#34a853;color:white;}
+    .info-panel.open { right: 0; }
+    @media (max-width: 640px) {
+      .info-panel { right: auto; left: 0; bottom: -100%; top: auto; width: 100%; height: 82vh; border-left: none; border-top: 1px solid rgba(232,200,122,.2); border-radius: 20px 20px 0 0; transition: bottom .35s cubic-bezier(.4,0,.2,1); }
+      .info-panel.open { bottom: 0; }
+    }
 
-    /* Terrain mode indicator */
-    #terrainBadge{
-      position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-      background:rgba(192,98,42,0.7);color:var(--gold);
-      padding:4px 12px;border-radius:99px;font-size:0.65rem;font-weight:600;letter-spacing:1px;
-      z-index:55;pointer-events:none;opacity:0;
-      transition:opacity 0.4s;
+    /* Panel hero */
+    .panel-hero-ph {
+      width: 100%; height: 155px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
     }
-    #terrainBadge.show{opacity:1;}
+    /* Diagonal stripe texture on hero — below the icon */
+    .panel-hero-ph::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+      background: repeating-linear-gradient(
+        -45deg, transparent, transparent 22px,
+        rgba(255,255,255,.022) 22px, rgba(255,255,255,.022) 44px
+      );
+    }
+    /* Hero icon wrapper — sits above the stripe texture */
+    .hero-icon-wrap {
+      width: 80px; height: 80px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1;
+    }
+    .hero-icon-wrap svg { width: 100%; height: 100%; display: block; }
+
+    .panel-close {
+      position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.15); color: #bbb;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;
+      transition: background .2s, color .2s;
+    }
+    .panel-close:hover { background: rgba(192,98,42,.4); color: var(--gold); }
+
+    .panel-body { padding: 16px; flex: 1; }
+    .panel-cat { display: inline-block; font-size: .67rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 2px 9px; border-radius: 99px; margin-bottom: 6px; }
+    .panel-title { font-family: 'Amiri', serif; font-size: 1.55rem; color: var(--gold); margin-bottom: 3px; }
+    .panel-sub  { font-size: .78rem; color: #9a8060; margin-bottom: 10px; }
+    .panel-desc { font-size: .83rem; line-height: 1.65; color: #c8b090; margin-bottom: 14px; }
+    .panel-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 14px; }
+    .fact-card { background: rgba(255,255,255,.05); border: 1px solid rgba(232,200,122,.15); border-radius: 8px; padding: 8px 10px; transition: border-color .2s; }
+    .fact-card:hover { border-color: rgba(232,200,122,.3); }
+    .fact-label { font-size: .63rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #8a7050; margin-bottom: 1px; }
+    .fact-value { font-size: .83rem; font-weight: 600; color: var(--gold); }
+    .panel-links { display: flex; flex-direction: column; gap: 7px; }
+    .link-btn {
+      display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 9px;
+      text-decoration: none; font-size: .8rem; font-weight: 500;
+      transition: transform .2s, filter .2s; border: 1.5px solid transparent;
+    }
+    .link-btn:hover { transform: translateX(4px); filter: brightness(1.1); }
+    .link-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .link-instagram { background: linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888); color: white; }
+    .link-youtube   { background: #ff0000; color: white; }
+    .link-wiki      { background: rgba(255,255,255,.9); color: #1a1208; border-color: rgba(200,160,80,.4); }
+    .link-google    { background: #4285f4; color: white; }
+    .link-maps      { background: #34a853; color: white; }
+
+    /* info-panel slides in — composited on its own layer */
+    .info-panel { will-change: right; }
+    @media (max-width: 640px) { .info-panel { will-change: bottom; } }
   </style>
 </head>
 <body>
-<a href="https://abbad.app" style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(192,98,42,0.35);border:1px solid rgba(192,98,42,0.5);color:#e8c87a;padding:3px 10px;border-radius:99px;font-size:0.62rem;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">← home</a>
 
-<!-- Sand particle layer -->
 <canvas id="sandCanvas"></canvas>
-
-<!-- Heat shimmer -->
-<div id="shimmer"></div>
 
 <div id="app">
   <header>
-    <!-- Logo: dune/wave motif — reads as both Saharan dunes and Atlantic waves -->
+    <!-- Logo: dune-wave motif + text -->
     <svg class="logo-svg" height="48" viewBox="0 0 240 54" xmlns="http://www.w3.org/2000/svg">
       <path d="M6,40 Q16,22 28,32 Q40,42 52,24 Q60,12 72,28"
             stroke="#c0622a" stroke-width="2.8" fill="none" stroke-linecap="round"/>
       <path d="M6,46 Q18,30 32,38 Q44,46 56,30 Q64,20 78,34"
-            stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.55"/>
+            stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>
       <text x="90" y="26" font-family="Amiri,serif" font-size="20" fill="#e8c87a" font-weight="700">MAURITANIA</text>
       <text x="91" y="41" font-family="Inter,sans-serif" font-size="8.5" fill="#9e8b6e" letter-spacing="3.5">EXPLORER</text>
       <defs>
         <linearGradient id="lgLine" x1="0" x2="1">
           <stop offset="0%" stop-color="#c0622a"/>
-          <stop offset="100%" stop-color="#3a8fa8" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#3a8fa8" stop-opacity=".4"/>
         </linearGradient>
       </defs>
       <line x1="90" y1="46" x2="240" y2="46" stroke="url(#lgLine)" stroke-width="1"/>
     </svg>
     <p>Click on any location to discover it</p>
-    <div class="legend">
-      <div class="legend-item active" onclick="filterCat(this,'all')"><div class="legend-dot" style="background:#888"></div>All</div>
-      <div class="legend-item" onclick="filterCat(this,'nature')"><div class="legend-dot" style="background:#6a8c4f"></div>Nature</div>
-      <div class="legend-item" onclick="filterCat(this,'historic')"><div class="legend-dot" style="background:#c0622a"></div>Historic</div>
-      <div class="legend-item" onclick="filterCat(this,'transport')"><div class="legend-dot" style="background:#4a9db5"></div>Transport</div>
-      <div class="legend-item" onclick="filterCat(this,'city')"><div class="legend-dot" style="background:#9e8b6e"></div>Cities</div>
+
+    <!-- Category legend with count badges -->
+    <div class="legend" id="legendBar">
+      <div class="legend-item active" data-cat="all" onclick="filterCat(this,'all')">
+        <div class="legend-dot" style="background:#888"></div>All<span class="cat-count" id="cnt-all">11</span>
+      </div>
+      <div class="legend-item" data-cat="nature" onclick="filterCat(this,'nature')">
+        <div class="legend-dot" style="background:#6a8c4f"></div>Nature<span class="cat-count" id="cnt-nature">4</span>
+      </div>
+      <div class="legend-item" data-cat="historic" onclick="filterCat(this,'historic')">
+        <div class="legend-dot" style="background:#c0622a"></div>Historic<span class="cat-count" id="cnt-historic">3</span>
+      </div>
+      <div class="legend-item" data-cat="transport" onclick="filterCat(this,'transport')">
+        <div class="legend-dot" style="background:#4a9db5"></div>Transport<span class="cat-count" id="cnt-transport">1</span>
+      </div>
+      <div class="legend-item" data-cat="city" onclick="filterCat(this,'city')">
+        <div class="legend-dot" style="background:#9e8b6e"></div>Cities<span class="cat-count" id="cnt-city">3</span>
+      </div>
     </div>
+
+    <!-- Walking camel decoration -->
+    <div class="header-camel">🐪</div>
   </header>
 
   <div class="map-area">
@@ -321,19 +469,60 @@
 
   <div class="music-bar">
     <div id="musicPulse" class="music-pulse" style="display:none"></div>
-    <button class="music-btn" id="musicBtn" onclick="toggleMusic()">🎵 Play Music</button>
+    <button class="music-btn" id="musicBtn" onclick="toggleMusic()">
+      <svg id="musicIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      Play Music
+    </button>
     <span class="music-info" id="musicLabel">—</span>
   </div>
 
   <div id="ytPlayer"></div>
 </div>
 
+<!-- World inset map (Africa-focused) -->
+<div id="worldInset">
+  <svg viewBox="0 0 84 64" xmlns="http://www.w3.org/2000/svg" width="84" height="64">
+    <!-- Ocean background -->
+    <rect width="84" height="64" fill="#080c14"/>
+    <!-- Subtle grid -->
+    <line x1="0" y1="32" x2="84" y2="32" stroke="#0e1a24" stroke-width=".4"/>
+    <line x1="42" y1="0" x2="42" y2="64" stroke="#0e1a24" stroke-width=".4"/>
+    <!-- European coast (rough) -->
+    <path d="M14 0 L52 0 L54 6 L50 10 L46 8 L40 10 L36 8 L28 10 L20 8 L14 4Z"
+          fill="#1a1208" stroke="#221808" stroke-width=".4"/>
+    <!-- Africa main body -->
+    <path d="M12 10 L32 8 L52 10 L60 16 L62 24 L58 34 L58 40 L52 52 L46 58 L40 60 L34 58 L30 52 L30 44 L34 36 L32 26 L26 22 L16 24 L10 20Z"
+          fill="#1e1508" stroke="#2a1c0a" stroke-width=".5"/>
+    <!-- Western bulge (Gulf of Guinea) -->
+    <path d="M26 22 L18 28 L14 34 L16 40 L20 38 L24 34 L28 36 L30 44 L30 52" stroke="#2a1c0a" stroke-width=".3" fill="none"/>
+    <!-- Mauritania region highlight -->
+    <path d="M12 10 L26 8 L28 20 L22 24 L12 22Z" fill="#c0622a" opacity=".55"/>
+    <!-- Atlantic shimmer -->
+    <rect x="0" y="0" width="11" height="64" fill="#0a1624" opacity=".6"/>
+    <!-- Marker: Nouakchott approx -->
+    <circle cx="16" cy="17" r="2.8" fill="#e8c87a"/>
+    <circle cx="16" cy="17" r="5.2" stroke="#c0622a" stroke-width=".9" fill="none" class="inset-dot-ring"/>
+  </svg>
+  <div class="inset-label">MAURITANIA</div>
+</div>
+
 <!-- iOS tap-to-start overlay -->
 <div id="musicOverlay" onclick="handleOverlayTap()">
-  <div class="overlay-emoji">🇲🇷</div>
+  <div class="overlay-stars"></div>
+  <div class="overlay-camel">🐪</div>
   <h2>Mauritania Explorer</h2>
-  <p>Tap to enter and start the music</p>
-  <div class="tap-btn">Tap to Begin</div>
+  <p>An interactive journey through the Sahara and beyond</p>
+  <div class="tap-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    Tap to Begin
+  </div>
+  <!-- Dune silhouette -->
+  <svg class="overlay-dunes" viewBox="0 0 400 90" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,90 L0,55 Q50,22 100,50 Q150,78 200,44 Q250,10 300,50 Q350,80 400,55 L400,90Z" fill="rgba(192,98,42,.12)"/>
+    <path d="M0,90 L0,65 Q60,38 120,58 Q180,78 240,52 Q300,24 360,58 Q390,72 400,65 L400,90Z" fill="rgba(26,18,8,.65)"/>
+  </svg>
 </div>
 
 <!-- Backdrop -->
@@ -342,91 +531,257 @@
 <!-- Info Panel -->
 <div class="info-panel" id="infoPanel">
   <div style="position:relative">
-    <div id="panelHero" class="panel-hero-ph">🌍</div>
-    <button class="panel-close" onclick="closePanel()">✕</button>
+    <div id="panelHero" class="panel-hero-ph"></div>
+    <button class="panel-close" onclick="closePanel()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+        <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </button>
   </div>
   <div class="panel-nav">
-    <button class="nav-btn" onclick="navPlace(-1)">← Prev</button>
+    <button class="nav-btn" onclick="navPlace(-1)">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><polyline points="15,18 9,12 15,6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Prev
+    </button>
     <span class="nav-counter" id="navCounter"></span>
-    <button class="nav-btn" onclick="navPlace(1)">Next →</button>
+    <button class="nav-btn" onclick="navPlace(1)">
+      Next
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><polyline points="9,18 15,12 9,6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </div>
   <div class="panel-body">
     <div class="panel-cat" id="panelCat"></div>
     <div class="panel-title" id="panelTitle"></div>
-    <div class="panel-sub" id="panelSub"></div>
+    <div class="panel-sub"  id="panelSub"></div>
     <div class="panel-desc" id="panelDesc"></div>
     <div class="panel-facts" id="panelFacts"></div>
     <div class="panel-links" id="panelLinks"></div>
   </div>
 </div>
 
-<div id="terrainBadge">▲ 3D TERRAIN</div>
+
+<a href="https://abbad.app" style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(192,98,42,.5);border:1px solid rgba(192,98,42,.6);color:#e8c87a;padding:3px 10px;border-radius:99px;font-size:.62rem;font-weight:600;text-decoration:none;">← home</a>
 
 <script>
-// ── Places data (unchanged) ──────────────────────────────────────────────────
+// ── CONFIG (from Mapbox reference pattern) ────────────────────────────────────
+const CONFIG = {
+  center:             [-11.5, 20.0],
+  // Wide Africa-level start — the map sits here behind the overlay
+  startCenter:        [-5, 20],
+  startZoom:          3.0,
+  restingZoom:        5.1,
+  flyZoom:            7.5,
+  flyDuration:        1800,
+  introDuration:      3400,  // Africa → Mauritania on overlay tap
+  minZoom:            4.0,
+  maxZoom:            14,
+};
+
+// ── Easing (cubic-out — from Mapbox reference pattern) ────────────────────────
+const cubicOut = t => 1 - Math.pow(1 - t, 3);
+
+// ── Desert-themed SVG icon library ───────────────────────────────────────────
+// Each icon is an <svg viewBox="0 0 20 20"> string; CSS sizes it inside .mb-icon
+const ICONS = {
+
+  // Eye of the Sahara — concentric geological rings
+  richat: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="10" cy="10" r="2.4" fill="#e8c87a"/>
+    <circle cx="10" cy="10" r="1" fill="#fff" opacity=".5"/>
+    <circle cx="10" cy="10" r="5.5" stroke="#e8c87a" stroke-width="1.2" fill="none" opacity=".6"/>
+    <circle cx="10" cy="10" r="8.8" stroke="#e8c87a" stroke-width=".7" fill="none" opacity=".28"/>
+    <path d="M10 1.2 L10 3.5 M10 16.5 L10 18.8 M1.2 10 L3.5 10 M16.5 10 L18.8 10" stroke="#e8c87a" stroke-width=".5" opacity=".2"/>
+  </svg>`,
+
+  // Flamingo silhouette — Banc d'Arguin migratory birds
+  arguin: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10 4 C12 6 12.5 8.5 11.5 11 L13 15 L10 17.5 C9 15.5 8 13 9 11 C7.5 8.5 8 6 10 4Z" fill="#ff7fa8" opacity=".9"/>
+    <path d="M7 17 Q8.5 18 10 17.5" stroke="#ff7fa8" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+    <circle cx="10.5" cy="4" r="1.3" fill="#e05070"/>
+    <path d="M8 10 Q9.5 9.2 11 10.2" stroke="#ffaac8" stroke-width=".8" fill="none" stroke-linecap="round" opacity=".6"/>
+    <path d="M13 15 L16 14.5 L15.5 15.5 L13 15.5Z" fill="#ff7fa8" opacity=".5"/>
+  </svg>`,
+
+  // Mosque minaret — Chinguetti (7th holy city)
+  mosque: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="6" y="12" width="8" height="6.5" rx=".5" fill="#c0622a" opacity=".88"/>
+    <path d="M7 12 Q10 3.5 13 12Z" fill="#c0622a" opacity=".92"/>
+    <line x1="10" y1="3.5" x2="10" y2="1.8" stroke="#e8c87a" stroke-width="1.1" stroke-linecap="round"/>
+    <circle cx="10" cy="1.4" r=".7" fill="#e8c87a"/>
+    <rect x="8.5" y="14" width="3" height="4" rx="1" fill="rgba(0,0,0,.28)"/>
+    <rect x="6.5" y="14" width="1.4" height="2.2" rx=".4" fill="rgba(0,0,0,.18)"/>
+    <rect x="12.1" y="14" width="1.4" height="2.2" rx=".4" fill="rgba(0,0,0,.18)"/>
+    <path d="M7 12 Q10 10 13 12" stroke="rgba(232,200,122,.2)" stroke-width=".5" fill="none"/>
+  </svg>`,
+
+  // Manuscript scroll — Oualata ancient library
+  scroll: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5.5" y="4" width="9" height="13" rx="1.5" stroke="#e8c87a" stroke-width="1.1" fill="rgba(26,14,5,.5)"/>
+    <circle cx="5.5" cy="5.5" r="1.6" fill="#c0622a"/>
+    <circle cx="5.5" cy="15.5" r="1.6" fill="#c0622a"/>
+    <line x1="8" y1="7.5" x2="12.5" y2="7.5" stroke="#e8c87a" stroke-width=".85" opacity=".7"/>
+    <line x1="8" y1="10"  x2="12.5" y2="10"  stroke="#e8c87a" stroke-width=".85" opacity=".7"/>
+    <line x1="8" y1="12.5" x2="11"  y2="12.5" stroke="#e8c87a" stroke-width=".85" opacity=".5"/>
+    <path d="M13 5.5 Q14 5.5 14 6.5 L14 15.5 Q14 16.5 13 16.5" stroke="#e8c87a" stroke-width=".5" fill="none" opacity=".3"/>
+  </svg>`,
+
+  // Neolithic ruins — Tichit ancient city
+  ruins: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="13.5" width="14" height="2" rx=".5" fill="#7a5a3a" opacity=".6"/>
+    <rect x="4"  y="9"  width="3"   height="5.5" rx=".5" fill="#c0622a" opacity=".7"/>
+    <rect x="9"  y="6"  width="3"   height="8.5" rx=".5" fill="#c0622a" opacity=".9"/>
+    <rect x="13.5" y="10" width="3" height="4.5" rx=".5" fill="#c0622a" opacity=".72"/>
+    <path d="M9 6 L10.5 3 L12 6Z" fill="#e8c87a" opacity=".88"/>
+    <line x1="3" y1="15.5" x2="17" y2="15.5" stroke="#8b4115" stroke-width=".4"/>
+    <path d="M4 11 Q5 9.5 6 11" stroke="#e8c87a" stroke-width=".5" fill="none" opacity=".3"/>
+  </svg>`,
+
+  // Locomotive — Iron Ore Train
+  train: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1"  y="7"  width="13" height="7"  rx="2"   fill="#4a9db5" opacity=".92"/>
+    <rect x="2"  y="5"  width="6"  height="3.8" rx="1"  fill="#3a8fa8" opacity=".9"/>
+    <circle cx="4"  cy="15.8" r="2"  fill="#7ec8e3" stroke="#0e1a22" stroke-width=".4"/>
+    <circle cx="11" cy="15.8" r="2"  fill="#7ec8e3" stroke="#0e1a22" stroke-width=".4"/>
+    <rect x="14" y="9"  width="5"  height="4"   rx="1"  fill="#4a9db5" opacity=".8"/>
+    <rect x="2.8" y="5.8" width="2.4" height="1.8" rx=".4" fill="rgba(255,255,255,.3)"/>
+    <rect x="6"   y="5.8" width="1.6" height="1.8" rx=".4" fill="rgba(255,255,255,.25)"/>
+    <path d="M14 11 L18 10.5 L18 13 L14 13Z" fill="#3a8fa8" opacity=".4"/>
+    <line x1="1"  y1="14" x2="14" y2="14" stroke="rgba(255,255,255,.07)" stroke-width=".5"/>
+  </svg>`,
+
+  // City skyline with minaret — Mauritanian cities
+  city: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 17 L2 11 L4 11 L4 8.5 L6 8.5 L6 6 L8 6 L8 4.5 L10 4.5 L10 6 L12 6 L12 11 L14 11 L14 9 L16 9 L16 11 L18 11 L18 17Z"
+          fill="#9e8b6e" opacity=".85"/>
+    <line x1="8" y1="4.5" x2="8" y2="2.5" stroke="#e8c87a" stroke-width=".9" stroke-linecap="round"/>
+    <circle cx="8" cy="2.5" r=".85" fill="#e8c87a"/>
+    <rect x="6.5" y="9" width="2.5" height="3.5" rx=".4" fill="rgba(0,0,0,.28)"/>
+    <rect x="14.5" y="11.5" width="2" height="2.5" rx=".3" fill="rgba(232,200,122,.15)"/>
+    <rect x="10.5" y="7.5" width="1.5" height="2"   rx=".3" fill="rgba(232,200,122,.15)"/>
+  </svg>`,
+
+  // Oasis / palm canyon — Terjit
+  oasis: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <line x1="10" y1="18.5" x2="10" y2="8" stroke="#6a8c4f" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M10 8 Q7 3.8 4 5 Q6.5 9.2 10 8Z"       fill="#6a8c4f" opacity=".95"/>
+    <path d="M10 8 Q13 3.8 16 5 Q13.5 9.2 10 8Z"    fill="#6a8c4f" opacity=".95"/>
+    <path d="M10 11 Q7.5 7.2 5 8.2 Q7.5 12.2 10 11Z" fill="#6a8c4f" opacity=".65"/>
+    <path d="M10 11 Q12.5 7.2 15 8.2 Q12.5 12.2 10 11Z" fill="#6a8c4f" opacity=".55"/>
+    <ellipse cx="10" cy="19" rx="5.2" ry="1.2" fill="#1e3d5e" opacity=".55"/>
+    <ellipse cx="10" cy="19" rx="2.8" ry=".65" fill="#2a5880" opacity=".6"/>
+  </svg>`,
+
+  // Granite monolith — Ben Amera
+  monolith: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5.5 17 L8.5 5 L11.5 5 L14.5 17Z" fill="#9e8b6e" opacity=".88"/>
+    <path d="M8.5 5 L10 1.8 L11.5 5Z"           fill="#c0622a" opacity=".92"/>
+    <ellipse cx="10" cy="17.6" rx="5.5" ry="1.1" fill="#5a4d38" opacity=".45"/>
+    <path d="M10 5 L10.5 9 L10 13 L9.5 9Z"       fill="rgba(0,0,0,.14)"/>
+    <path d="M8.5 5 Q7.5 8 7 12 L7.5 15"         stroke="#7a6d54" stroke-width=".45" fill="none" opacity=".35"/>
+  </svg>`,
+
+  // Anchor — Nouadhibou port city
+  port: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="10" cy="5.5" r="2"   stroke="#4a9db5" stroke-width="1.2" fill="none"/>
+    <circle cx="10" cy="5.5" r=".85" fill="#7ec8e3"/>
+    <line x1="10" y1="7.5" x2="10" y2="17"   stroke="#4a9db5" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="5"  y1="10.5" x2="15" y2="10.5" stroke="#4a9db5" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M5 17 Q7.5 14 10 17 Q12.5 14 15 17" stroke="#4a9db5" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  </svg>`,
+};
+
+// Map each place ID → icon key
+const PLACE_ICON = {
+  richat:     'richat',
+  arguin:     'arguin',
+  chinguetti: 'mosque',
+  oualata:    'scroll',
+  atar:       'city',
+  terjit:     'oasis',
+  tichit:     'ruins',
+  benamera:   'monolith',
+  nouakchott: 'city',
+  nouadhibou: 'port',
+  train:      'train',
+};
+
+// SVG icons for external link buttons
+const LINK_ICONS = {
+  instagram: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" stroke-width="2.2" fill="none"/><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="17.2" cy="6.8" r="1.4" fill="currentColor"/></svg>`,
+  youtube:   `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 7s-.3-2-1.2-2.8C19.7 3 18.4 3 17.8 2.9 15.6 2.8 12 2.8 12 2.8s-3.6 0-5.8.1C5.6 3 4.3 3 3.2 4.2 2.3 5 2 7 2 7S1.8 9.2 1.8 11.4v2C1.8 15.6 2 17.8 2 17.8s.3 2 1.2 2.8C4.3 21.8 5.8 21.7 6.4 21.8 8.4 22 12 22 12 22s3.6 0 5.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8S22.2 15.5 22.2 13.3v-2C22.2 9.2 22 7 22 7zM9.8 15.1V8.4l6.5 3.4-6.5 3.3z"/></svg>`,
+  wiki:      `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.5"/><path d="M12 2C9 6 9 18 12 22" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M12 2C15 6 15 18 12 22" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
+  google:    `<svg viewBox="0 0 24 24" fill="none"><path d="M22 12.2c0-.7-.1-1.3-.2-2H12v3.8h5.5c-.2 1.2-1 2.3-2.1 3v2.5h3.4C20.9 17.5 22 15 22 12.2z" fill="#4285F4"/><path d="M12 22c2.7 0 5-.9 6.8-2.4l-3.4-2.5c-.9.6-2 1-3.4 1-2.4 0-4.4-1.6-5.2-3.8H3.3V16.6C5 19.6 8.3 22 12 22z" fill="#34A853"/><path d="M6.8 14.3c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.3C2.5 9 2 10.4 2 12s.5 3 1.3 4.6l3.5-2.3z" fill="#FBBC05"/><path d="M12 6.2c1.4 0 2.6.5 3.5 1.3l2.6-2.5C16.5 3.5 14.4 2.5 12 2.5 8.3 2.5 5 4.9 3.3 8.2l3.5 2.8C7.6 7.9 9.6 6.2 12 6.2z" fill="#EA4335"/></svg>`,
+  maps:      `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 6.5 12 6.5s2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z" fill="#34a853"/></svg>`,
+};
+
+// ── Places data ───────────────────────────────────────────────────────────────
 const PLACES = {
-  train:{name:"Iron Ore Train",subtitle:"Zouerat → Choum → Nouadhibou",category:"transport",categoryColor:"#4a9db5",emoji:"🚂",
+  train: {
+    name:"Iron Ore Train", subtitle:"Zouerat → Choum → Nouadhibou", category:"transport", categoryColor:"#4a9db5",
     desc:"One of the longest and heaviest trains in the world — up to 3 km long. It hauls iron ore across the Sahara from the mines of Zouerat to the port of Nouadhibou, a 700 km journey taking 12–20 hours. Adventure travelers ride the open ore cars for free, sleeping under stars with the vast desert rolling by.",
     facts:[{label:"Length",value:"Up to 3 km"},{label:"Route",value:"700 km"},{label:"Cargo",value:"Iron Ore"},{label:"Journey",value:"~16 hours"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/mauritaniatrain/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=mauritania+iron+ore+train",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Mauritania_Railway",style:"link-wiki"},{label:"Google",icon:"🔍",url:"https://www.google.com/search?q=mauritania+iron+ore+train",style:"link-google"}]},
-  richat:{name:"Eye of the Sahara",subtitle:"Richat Structure — Adrar Region",category:"nature",categoryColor:"#6a8c4f",emoji:"👁️",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/mauritaniatrain/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=mauritania+iron+ore+train",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Mauritania_Railway",style:"link-wiki"},{label:"Google",icon:"google",url:"https://www.google.com/search?q=mauritania+iron+ore+train",style:"link-google"}]},
+  richat: {
+    name:"Eye of the Sahara", subtitle:"Richat Structure — Adrar Region", category:"nature", categoryColor:"#6a8c4f",
     desc:"Known as the Richat Structure, this stunning geological dome spans 50 km in diameter. Once thought to be a meteor crater, scientists now believe it formed by volcanic uplift and erosion over hundreds of millions of years. Visible from space, it is one of Earth's most iconic natural landmarks.",
     facts:[{label:"Diameter",value:"50 km"},{label:"Type",value:"Geological dome"},{label:"Age",value:"~100M years"},{label:"Visible",value:"From space"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/eyeofthesahara/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=richat+structure+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Richat_Structure",style:"link-wiki"},{label:"NASA imagery",icon:"🛸",url:"https://earthobservatory.nasa.gov/images/36852/richat-structure-mauritania",style:"link-google"}]},
-  arguin:{name:"Banc d'Arguin",subtitle:"National Park — Atlantic Coast",category:"nature",categoryColor:"#6a8c4f",emoji:"🦩",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/eyeofthesahara/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=richat+structure+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Richat_Structure",style:"link-wiki"},{label:"NASA",icon:"google",url:"https://earthobservatory.nasa.gov/images/36852/richat-structure-mauritania",style:"link-google"}]},
+  arguin: {
+    name:"Banc d'Arguin", subtitle:"National Park — Atlantic Coast", category:"nature", categoryColor:"#6a8c4f",
     desc:"A UNESCO World Heritage site where the Sahara meets the Atlantic. Home to over 2 million migratory birds annually. The Imraguen people have fished these warm shallow waters for centuries using ancient methods — driving fish into nets with sail boats.",
     facts:[{label:"Area",value:"12,000 km²"},{label:"Status",value:"UNESCO Heritage"},{label:"Birds",value:"2M+ migratory"},{label:"People",value:"Imraguen tribe"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/bancdarguin/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=banc+d+arguin+mauritania",style:"link-youtube"},{label:"UNESCO",icon:"📖",url:"https://whc.unesco.org/en/list/506",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Banc+d'Arguin",style:"link-maps"}]},
-  chinguetti:{name:"Chinguetti",subtitle:"The 7th Holy City of Islam",category:"historic",categoryColor:"#c0622a",emoji:"🕌",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/bancdarguin/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=banc+d+arguin+mauritania",style:"link-youtube"},{label:"UNESCO",icon:"wiki",url:"https://whc.unesco.org/en/list/506",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Banc+d'Arguin",style:"link-maps"}]},
+  chinguetti: {
+    name:"Chinguetti", subtitle:"The 7th Holy City of Islam", category:"historic", categoryColor:"#c0622a",
     desc:"Founded in the 13th century as a gathering point for Saharan caravans heading to Mecca. Its ancient libraries hold thousands of medieval manuscripts on astronomy, mathematics and theology. Today it is slowly being reclaimed by encroaching desert dunes — a UNESCO World Heritage site.",
     facts:[{label:"Founded",value:"13th century"},{label:"Status",value:"UNESCO Heritage"},{label:"Manuscripts",value:"~1,300 preserved"},{label:"Known as",value:"7th Holy City"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/chinguetti/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=chinguetti+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Chinguetti",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Chinguetti+Mauritania",style:"link-maps"}]},
-  oualata:{name:"Oualata",subtitle:"Ancient Caravan City — UNESCO",category:"historic",categoryColor:"#c0622a",emoji:"📜",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/chinguetti/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=chinguetti+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Chinguetti",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Chinguetti+Mauritania",style:"link-maps"}]},
+  oualata: {
+    name:"Oualata", subtitle:"Ancient Caravan City — UNESCO", category:"historic", categoryColor:"#c0622a",
     desc:"One of the oldest cities in Mauritania — a major trans-Saharan trade terminus. Its red-painted houses decorated with intricate geometric patterns are unique in the world. Holds precious medieval manuscripts alongside Chinguetti and Tichit as UNESCO World Heritage sites.",
     facts:[{label:"Founded",value:"11th century"},{label:"Status",value:"UNESCO Heritage"},{label:"Known for",value:"Manuscripts & art"},{label:"Location",value:"Eastern Mauritania"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/oualata/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=oualata+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Oualata",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Oualata+Mauritania",style:"link-maps"}]},
-  atar:{name:"Atar",subtitle:"Gateway to the Adrar",category:"city",categoryColor:"#9e8b6e",emoji:"🏘️",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/oualata/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=oualata+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Oualata",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Oualata+Mauritania",style:"link-maps"}]},
+  atar: {
+    name:"Atar", subtitle:"Gateway to the Adrar", category:"city", categoryColor:"#9e8b6e",
     desc:"The main city of the Adrar region and gateway to Mauritania's most stunning landscapes — ancient ksour, palm groves and dramatic desert plateaux. A base for trekking, camel riding and visiting the nearby Terjit oasis. The old market and traditional mud-brick architecture are a living snapshot of Saharan life.",
     facts:[{label:"Altitude",value:"~260 m"},{label:"Region",value:"Adrar"},{label:"Known for",value:"Desert gateway"},{label:"Nearby",value:"Terjit oasis"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/atar_mauritania/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=atar+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Atar,_Mauritania",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Atar+Mauritania",style:"link-maps"}]},
-  terjit:{name:"Terjit Oasis",subtitle:"Hidden Jewel of the Sahara",category:"nature",categoryColor:"#6a8c4f",emoji:"🌴",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/atar_mauritania/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=atar+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Atar,_Mauritania",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Atar+Mauritania",style:"link-maps"}]},
+  terjit: {
+    name:"Terjit Oasis", subtitle:"Hidden Jewel of the Sahara", category:"nature", categoryColor:"#6a8c4f",
     desc:"Mauritania's most magical spot — a narrow canyon with palm trees and crystal-clear natural pools fed by mountain springs, hidden in the heart of the Sahara. The contrast between scorching desert above and cool green oasis below is breathtaking. Accessible by 4x4 from Atar, about 45 km away.",
     facts:[{label:"From Atar",value:"45 km (4x4)"},{label:"Type",value:"Spring oasis"},{label:"Terrain",value:"Canyon palmeraie"},{label:"Best time",value:"Nov – Feb"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/terjit/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=terjit+oasis+mauritania",style:"link-youtube"},{label:"Google",icon:"🔍",url:"https://www.google.com/search?q=terjit+oasis+mauritania",style:"link-google"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Terjit+Oasis+Mauritania",style:"link-maps"}]},
-  tichit:{name:"Tichit",subtitle:"Ancient Neolithic Settlement",category:"historic",categoryColor:"#c0622a",emoji:"🏛️",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/terjit/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=terjit+oasis+mauritania",style:"link-youtube"},{label:"Google",icon:"google",url:"https://www.google.com/search?q=terjit+oasis+mauritania",style:"link-google"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Terjit+Oasis+Mauritania",style:"link-maps"}]},
+  tichit: {
+    name:"Tichit", subtitle:"Ancient Neolithic Settlement", category:"historic", categoryColor:"#c0622a",
     desc:"One of the oldest known cities in West Africa, Tichit was a thriving urban centre as far back as 1500 BCE. The region contains remarkable Neolithic stone monuments and ancient granaries. Today a quiet UNESCO World Heritage village — crumbling earth houses and a lone mosque stand against an ocean of golden desert.",
     facts:[{label:"Founded",value:"~1500 BCE"},{label:"Status",value:"UNESCO Heritage"},{label:"Known for",value:"Neolithic ruins"},{label:"Region",value:"Tagant"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/tichit/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=tichit+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Tichit",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Tichit+Mauritania",style:"link-maps"}]},
-  benamera:{name:"Ben Amera",subtitle:"World's Second Largest Monolith",category:"nature",categoryColor:"#9e8b6e",emoji:"🗿",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/tichit/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=tichit+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Tichit",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Tichit+Mauritania",style:"link-maps"}]},
+  benamera: {
+    name:"Ben Amera", subtitle:"World's Second Largest Monolith", category:"nature", categoryColor:"#9e8b6e",
     desc:"Rising 633 metres from the flat Saharan plain, Ben Amera is the second largest monolith on Earth after Uluru in Australia. This colossal granite inselberg in northwestern Mauritania towers over a surreal lunar landscape near the town of Bir Moghrein. Almost unknown to the outside world, it is one of Africa's most spectacular and least-visited natural wonders.",
     facts:[{label:"Height",value:"633 m"},{label:"Rank",value:"2nd largest monolith"},{label:"Type",value:"Granite inselberg"},{label:"Region",value:"Tiris Zemmour"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/benamera/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=ben+amera+mauritania+monolith",style:"link-youtube"},{label:"Google",icon:"🔍",url:"https://www.google.com/search?q=ben+amera+monolith+mauritania",style:"link-google"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Ben+Amera+Mauritania",style:"link-maps"}]},
-  nouakchott:{name:"Nouakchott",subtitle:"Capital City ★",category:"city",categoryColor:"#9e8b6e",emoji:"🏙️",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/benamera/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=ben+amera+mauritania+monolith",style:"link-youtube"},{label:"Google",icon:"google",url:"https://www.google.com/search?q=ben+amera+monolith+mauritania",style:"link-google"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Ben+Amera+Mauritania",style:"link-maps"}]},
+  nouakchott: {
+    name:"Nouakchott", subtitle:"Capital City ★", category:"city", categoryColor:"#9e8b6e",
     desc:"One of the youngest capital cities in the world — barely a village when Mauritania gained independence in 1960. Today home to over 1 million people. The famous Fish Market at sunset is a vibrant spectacle where hundreds of painted pirogues land their catch on the beach.",
     facts:[{label:"Population",value:"~1.2 million"},{label:"Founded",value:"1960"},{label:"Elevation",value:"5 m (sea level)"},{label:"Known for",value:"Fish market"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/nouakchott/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=nouakchott+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Nouakchott",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Nouakchott+Mauritania",style:"link-maps"}]},
-  nouadhibou:{name:"Nouadhibou",subtitle:"Port City & Train Terminus",category:"city",categoryColor:"#4a9db5",emoji:"⚓",
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/nouakchott/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=nouakchott+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Nouakchott",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Nouakchott+Mauritania",style:"link-maps"}]},
+  nouadhibou: {
+    name:"Nouadhibou", subtitle:"Port City & Train Terminus", category:"city", categoryColor:"#4a9db5",
     desc:"Mauritania's second city and economic capital — a narrow peninsula jutting between the Atlantic and the Bay of Lévrier. The Iron Ore Train terminates here, offloading millions of tonnes annually at one of Africa's largest iron ore export terminals. The ship graveyard on Cap Blanc beach, with dozens of rusting wrecks stretching along the coast, is one of the world's most surreal and photogenic sights.",
     facts:[{label:"Population",value:"~120,000"},{label:"Port",value:"Iron ore terminal"},{label:"Known for",value:"Ship graveyard"},{label:"Coast",value:"Atlantic & Bay"}],
-    links:[{label:"Instagram",icon:"📸",url:"https://www.instagram.com/explore/tags/nouadhibou/",style:"link-instagram"},{label:"YouTube",icon:"▶️",url:"https://www.youtube.com/results?search_query=nouadhibou+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"📖",url:"https://en.wikipedia.org/wiki/Nouadhibou",style:"link-wiki"},{label:"Google Maps",icon:"🗺️",url:"https://maps.google.com/?q=Nouadhibou+Mauritania",style:"link-maps"}]}
+    links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/nouadhibou/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=nouadhibou+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Nouadhibou",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Nouadhibou+Mauritania",style:"link-maps"}]},
 };
 
 const CAT = {
-  nature:{bg:'rgba(80,130,60,0.2)',text:'#a0e080',border:'#6a8c4f'},
-  historic:{bg:'rgba(180,80,30,0.2)',text:'#f0a060',border:'#c0622a'},
-  transport:{bg:'rgba(50,120,160,0.2)',text:'#80c8e8',border:'#4a9db5'},
-  city:{bg:'rgba(140,120,80,0.2)',text:'#d0b880',border:'#9e8b6e'},
+  nature:    { bg:'rgba(80,130,60,.2)',   text:'#a0e080', border:'#6a8c4f' },
+  historic:  { bg:'rgba(180,80,30,.2)',   text:'#f0a060', border:'#c0622a' },
+  transport: { bg:'rgba(50,120,160,.2)',  text:'#80c8e8', border:'#4a9db5' },
+  city:      { bg:'rgba(140,120,80,.2)',  text:'#d0b880', border:'#9e8b6e' },
 };
 
-// Locations that trigger 3D terrain + camera tilt
-const TERRAIN_LOCATIONS = {
-  richat: { zoom: 8.5, bearing: 20 },
-  atar:   { zoom: 9,   bearing: -10 },
-  terjit: { zoom: 10,  bearing: 15 },
-  benamera: { zoom: 9, bearing: 30 },
-};
 
-// ── Coordinates (lng, lat) ───────────────────────────────────────────────────
 const COORDS = {
   richat:     [-11.402, 21.117],
   arguin:     [-16.404, 20.078],
@@ -438,7 +793,7 @@ const COORDS = {
   nouakchott: [-15.978, 18.086],
   benamera:   [-13.667, 21.233],
   nouadhibou: [-17.035, 20.931],
-  // Choum railway junction (on the rail line) — clickable Iron Ore Train marker
+  // Choum railway junction (on the real SNIM rail line)
   train:      [-13.044, 21.299],
 };
 
@@ -446,21 +801,24 @@ const COORDS = {
 // simplified from OpenStreetMap relation 2603116 (SNIM line). Index ~21 is Choum.
 const TRAIN_LINE = [[-12.4851,22.772],[-12.5977,22.7277],[-12.6375,22.7031],[-12.6903,22.6797],[-12.699,22.6719],[-12.7052,22.6348],[-12.6894,22.5587],[-12.6791,22.5377],[-12.6704,22.5],[-12.6688,22.4313],[-12.6827,22.294],[-12.6764,22.2757],[-12.6659,22.2066],[-12.7019,22.0563],[-12.7219,21.9318],[-12.7359,21.9067],[-12.8118,21.723],[-12.8409,21.6865],[-12.9767,21.3969],[-13.0038,21.3731],[-13.0334,21.3087],[-13.044,21.2991],[-13.2391,21.292],[-13.3853,21.2693],[-13.5623,21.2106],[-13.5882,21.197],[-13.6664,21.2002],[-13.8388,21.1861],[-13.8889,21.1936],[-14.1218,21.1947],[-14.1848,21.2065],[-14.2561,21.2113],[-14.2808,21.2206],[-14.4294,21.2433],[-14.5306,21.2679],[-14.748,21.2739],[-14.8533,21.2802],[-14.9256,21.2889],[-15.2563,21.2856],[-15.4615,21.2893],[-15.4968,21.2914],[-15.5188,21.2973],[-15.7581,21.2877],[-15.8037,21.2951],[-15.8281,21.291],[-15.8839,21.296],[-15.998,21.2965],[-16.0771,21.3065],[-16.2356,21.3144],[-16.2993,21.3229],[-16.3348,21.3197],[-16.3917,21.3],[-16.43,21.294],[-16.4818,21.2971],[-16.4992,21.2916],[-16.5401,21.3019],[-16.5931,21.2984],[-16.6176,21.2889],[-16.6385,21.2902],[-16.6502,21.2857],[-16.7759,21.2804],[-16.9066,21.2874],[-16.9211,21.2774],[-16.9314,21.2553],[-16.9499,21.2345],[-16.9904,21.143],[-16.9992,21.0975],[-17.0197,21.0678],[-17.0326,21.0339],[-17.0331,20.9981],[-17.0413,20.9611],[-17.063,20.8969],[-17.0592,20.8709],[-17.0474,20.8522],[-17.0428,20.8334],[-17.0429,20.8182],[-17.051,20.806]];
 
+// ── State ─────────────────────────────────────────────────────────────────────
 const MARKERS = [];
-let terrainEnabled = false;
 let map;
+let currentMarkerEl = null;   // emphasize/deselect pattern
+let currentCat      = 'all';
 
-// ── MapLibre init ────────────────────────────────────────────────────────────
+// ── MapLibre init ─────────────────────────────────────────────────────────────
 map = new maplibregl.Map({
   container: 'map',
   style: 'https://tiles.openfreemap.org/styles/dark',
-  center: [-11.5, 20.0],
-  zoom: 5.1,
-  minZoom: 4.0,
-  maxZoom: 14,
+  center: CONFIG.startCenter,
+  zoom:   CONFIG.startZoom,
+  minZoom: 2.0,          // wide during intro; tightened after zoom-in
+  maxZoom: CONFIG.maxZoom,
   attributionControl: true,
-  maxBounds: [[-22, 12], [1, 32]],
-  pitchWithRotate: true,
+  // maxBounds set after intro animation ends
+  pitchWithRotate: false,
+  fadeDuration: 100,
 });
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
@@ -469,128 +827,194 @@ map.on('style.load', () => {
   applyDesertPalette();
   addTrainLayer();
   addOceanShimmer();
+  addCoastlineWave();
   addMarkers();
-  startOceanPulse();
+  updateCategoryCounts();
+  // Map stays at the wide Africa view until the overlay is tapped
 });
 
+// ── fly() — centralised flyTo with cubic-out easing (from Mapbox reference) ──
+function fly(opts) {
+  const o = Object.assign(
+    { center: CONFIG.center, zoom: CONFIG.restingZoom, duration: CONFIG.flyDuration },
+    opts
+  );
+  map.flyTo({
+    center:    o.center,
+    zoom:      o.zoom,
+    essential: true,
+    duration:  o.duration,
+    easing:    cubicOut,
+  });
+}
+
+// ── Desert colour palette ─────────────────────────────────────────────────────
 function applyDesertPalette() {
   const styleData = map.getStyle();
   if (!styleData || !styleData.layers) return;
-
-  const bgLayers = ['background','land','landcover','landuse'];
   const waterLayers = ['water','ocean','water-shadow','waterway'];
-  const roadLayers = styleData.layers
-    .filter(l => l.id && (l.id.includes('road') || l.id.includes('street') || l.id.includes('highway')))
-    .map(l => l.id);
-
   styleData.layers.forEach(layer => {
     const id = layer.id;
-    // Land / background → dark desert brown
     if (id === 'background' || id === 'land' || id === 'landcover') {
       try { map.setPaintProperty(id, 'background-color', '#1e1508'); } catch(e) {}
-      try { map.setPaintProperty(id, 'fill-color', '#1e1508'); } catch(e) {}
+      try { map.setPaintProperty(id, 'fill-color',       '#1e1508'); } catch(e) {}
     }
-    // Water → deep ocean dark blue
     if (waterLayers.some(w => id.startsWith(w))) {
       try { map.setPaintProperty(id, 'fill-color', '#0e2030'); } catch(e) {}
       try { map.setPaintProperty(id, 'line-color', '#0e2030'); } catch(e) {}
     }
-    // Country borders → terracotta dashed
     if (id.includes('border') || id.includes('boundary')) {
-      try {
-        map.setPaintProperty(id, 'line-color', '#c0622a');
-        map.setPaintProperty(id, 'line-opacity', 0.7);
-      } catch(e) {}
+      try { map.setPaintProperty(id, 'line-color',   '#c0622a'); } catch(e) {}
+      try { map.setPaintProperty(id, 'line-opacity', 0.7);       } catch(e) {}
     }
-    // Place labels → gold/stone tones
     if (id.includes('label') || id.includes('place') || id.includes('city')) {
-      try { map.setPaintProperty(id, 'text-color', '#c8a870'); } catch(e) {}
-      try { map.setPaintProperty(id, 'text-halo-color', '#1a1208'); } catch(e) {}
+      try { map.setPaintProperty(id, 'text-color',       '#c8a870'); } catch(e) {}
+      try { map.setPaintProperty(id, 'text-halo-color',  '#1a1208'); } catch(e) {}
     }
   });
 }
 
+// ── Train route layer ─────────────────────────────────────────────────────────
 function addTrainLayer() {
   map.addSource('train-route', {
     type: 'geojson',
-    data: {
-      type: 'Feature',
-      geometry: { type: 'LineString', coordinates: TRAIN_LINE }
-    }
+    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: TRAIN_LINE } }
   });
   map.addLayer({
-    id: 'train-bg',
-    type: 'line',
-    source: 'train-route',
+    id: 'train-bg',   type: 'line', source: 'train-route',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#4a9db5', 'line-width': 10, 'line-opacity': 0.18 }
+    paint:  { 'line-color': '#4a9db5', 'line-width': 10, 'line-opacity': .18 }
   });
   map.addLayer({
-    id: 'train-line',
-    type: 'line',
-    source: 'train-route',
+    id: 'train-line', type: 'line', source: 'train-route',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': '#7ec8e3', 'line-width': 2.5, 'line-dasharray': [2, 5], 'line-opacity': 0.8 }
+    paint:  { 'line-color': '#7ec8e3', 'line-width': 2.5, 'line-dasharray': [2,5], 'line-opacity': .8 }
   });
-
-  // Zouerat terminal dot only (Nouadhibou has its own location marker)
+  // Zouerat terminal dot
   const dotEl = document.createElement('div');
   dotEl.className = 'mb-train-dot';
   dotEl.onclick = () => openPlace('train');
   new maplibregl.Marker({ element: dotEl, anchor: 'center' }).setLngLat([-12.471, 22.735]).addTo(map);
 }
 
+// ── Ocean shimmer ─────────────────────────────────────────────────────────────
 function addOceanShimmer() {
-  // Subtle shimmer polygon over Atlantic coast area
   map.addSource('ocean-shimmer', {
     type: 'geojson',
     data: {
       type: 'Feature',
       geometry: {
         type: 'Polygon',
-        coordinates: [[
-          [-22, 14], [-16.0, 14], [-15.5, 16], [-16.5, 18.5],
-          [-17.5, 21], [-17.2, 24], [-18, 27], [-22, 27], [-22, 14]
-        ]]
+        coordinates: [[[-22,14],[-16.0,14],[-15.5,16],[-16.5,18.5],[-17.5,21],[-17.2,24],[-18,27],[-22,27],[-22,14]]]
       }
     }
   });
   map.addLayer({
-    id: 'ocean-shimmer-layer',
-    type: 'fill',
-    source: 'ocean-shimmer',
-    paint: { 'fill-color': '#3a8fa8', 'fill-opacity': 0.05 }
+    id: 'ocean-shimmer-layer', type: 'fill', source: 'ocean-shimmer',
+    paint: { 'fill-color': '#3a8fa8', 'fill-opacity': .05 }
   });
 }
 
-let wavePhase = 0;
-function startOceanPulse() {
-  setInterval(() => {
-    wavePhase = (wavePhase + 0.04) % (Math.PI * 2);
-    const opacity = 0.04 + Math.sin(wavePhase) * 0.03;
-    try { map.setPaintProperty('ocean-shimmer-layer', 'fill-opacity', opacity); } catch(e) {}
-  }, 120);
+// ── Atlantic coastline wave animation ─────────────────────────────────────────
+// Simplified Mauritanian coastline — Cap Blanc → Senegal border (N→S)
+const COAST_COORDS = [
+  [-17.062, 21.349], [-17.063, 21.200], [-17.056, 21.083],
+  [-17.039, 20.950], [-17.028, 20.810], [-17.046, 20.630],
+  [-17.037, 20.445], [-16.991, 20.226], [-16.952, 20.082],
+  [-16.877, 19.940], [-16.722, 19.816], [-16.600, 19.680],
+  [-16.519, 19.601], [-16.404, 19.474], [-16.292, 19.360],
+  [-16.154, 19.141], [-16.113, 18.961], [-16.140, 18.820],
+  [-16.216, 18.680], [-16.375, 18.490], [-16.470, 18.330],
+  [-16.554, 18.180], [-16.497, 18.001], [-16.385, 17.830],
+  [-16.280, 17.650], [-16.143, 17.420], [-16.050, 17.150],
+];
+
+function addCoastlineWave() {
+  map.addSource('coastline', {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: COAST_COORDS } }
+  });
+
+  // Soft background glow
+  map.addLayer({
+    id: 'coast-glow', type: 'line', source: 'coastline',
+    paint: { 'line-color': '#4a9db5', 'line-width': 9, 'line-opacity': .10, 'line-blur': 5 }
+  });
+
+  // Traveling-wave dashed line (marching-ants style — each frame shifts the
+  // dash pattern by half a unit to simulate surf moving along the shore).
+  map.addLayer({
+    id: 'coast-wave', type: 'line', source: 'coastline',
+    paint: {
+      'line-color': '#9fd4e8',
+      'line-width': 1.8,
+      'line-opacity': .75,
+      'line-dasharray': [3, 7],
+    }
+  });
+
+  // Pre-build 20 dasharray "frames" that cycle the 10-unit period (3 dash + 7 gap)
+  const PERIOD = 10;           // dash + gap total
+  const DASH   = 3;
+  const FRAMES = 20;
+  const seqs   = [];
+  for (let i = 0; i < FRAMES; i++) {
+    const offset = (i / FRAMES) * PERIOD; // 0 → 10
+    const d0 = (DASH  - offset % DASH)  % DASH;   // leading partial dash
+    const g0 = (PERIOD - DASH - (offset % (PERIOD - DASH))) % (PERIOD - DASH);
+    // Simple two-value shift: [gap-before-first-dash, dash, gap]
+    const shift = (i / FRAMES) * PERIOD;
+    seqs.push([
+      PERIOD - shift % PERIOD,
+      DASH,
+      Math.max(0, shift % PERIOD - (PERIOD - DASH)),
+    ].filter(v => v > 0));
+  }
+
+  // Fallback: just cycle through 20 evenly shifted [3,7] patterns
+  const dashFrames = Array.from({ length: FRAMES }, (_, i) => {
+    const s = (i / FRAMES) * PERIOD;
+    if (s < DASH) return [DASH - s, PERIOD - DASH, s];
+    return [0, s - DASH, DASH, PERIOD - s];
+  });
+
+  let frame = 0, lastCoastTime = 0;
+  function stepCoast(now) {
+    if (now - lastCoastTime > 80) {   // ~12 fps — enough for smooth wave feel
+      lastCoastTime = now;
+      frame = (frame + 1) % FRAMES;
+      try { map.setPaintProperty('coast-wave', 'line-dasharray', dashFrames[frame]); } catch(e) {}
+    }
+    requestAnimationFrame(stepCoast);
+  }
+  requestAnimationFrame(stepCoast);
 }
 
+// ── Markers with custom SVG icons ─────────────────────────────────────────────
 function addMarkers() {
   let delay = 0;
   Object.keys(PLACES).forEach(id => {
-    const p = PLACES[id];
+    const p    = PLACES[id];
     const coord = COORDS[id];
     if (!coord) return;
+
+    const iconSvg = ICONS[PLACE_ICON[id] || 'city'];
 
     const el = document.createElement('div');
     el.className = 'mb-marker';
     el.setAttribute('data-cat', p.category);
-    el.setAttribute('data-id', id);
-    el.style.animationDelay = delay + 'ms';
-    delay += 80;
+    el.setAttribute('data-id',  id);
+    delay += 80; // animation-delay applied inline on .mb-marker-inner
 
-    el.innerHTML = `<div class="mb-marker-inner"><div class="mb-icon">${p.emoji}</div><div class="mb-label">${p.name.split(' ').slice(0,2).join(' ')}</div></div>`;
+    // mb-marker-inner wrapper carries the drop animation so MapLibre's inline
+    // transform on the outer element is never clobbered (main fix).
+    // SVG icon replaces emoji; animation-delay set on the inner wrapper.
+    el.innerHTML = `<div class="mb-marker-inner" style="animation-delay:${delay}ms"><div class="mb-icon">${iconSvg}</div><div class="mb-label">${p.name.split(' ').slice(0,2).join(' ')}</div></div>`;
 
     el.onclick = () => {
       el.classList.add('clicked');
       setTimeout(() => el.classList.remove('clicked'), 600);
+      emphasizeMarker(el);
       openPlace(id);
     };
 
@@ -601,45 +1025,60 @@ function addMarkers() {
       .setLngLat(coord)
       .addTo(map);
 
-    MARKERS.push({ id, marker, cat: p.category });
+    MARKERS.push({ id, marker, cat: p.category, el });
   });
 }
 
-// ── Animated train sprite ────────────────────────────────────────────────────
+// ── Emphasize / deselect (from Mapbox reference pattern) ─────────────────────
+function emphasizeMarker(el) {
+  if (currentMarkerEl && currentMarkerEl !== el) {
+    currentMarkerEl.classList.remove('emphasized');
+  }
+  currentMarkerEl = el;
+  el.classList.add('emphasized');
+}
+
+function deselectMarker() {
+  if (currentMarkerEl) {
+    currentMarkerEl.classList.remove('emphasized');
+    currentMarkerEl = null;
+  }
+}
+
+// ── Animated iron-ore train sprite ───────────────────────────────────────────
 (function initTrainSprite() {
-  const route = TRAIN_LINE; // full real rail path, Zouérat → Nouadhibou
+  const route = TRAIN_LINE; // full real SNIM rail path, Zouérat → Nouadhibou
   function lngLatDist(a, b) {
     const dx = (b[0]-a[0])*Math.cos((a[1]+b[1])*Math.PI/360);
     const dy = b[1]-a[1];
     return Math.sqrt(dx*dx+dy*dy);
   }
-  // Pre-compute per-segment lengths so the train can follow the polyline exactly.
+  // Pre-compute per-segment lengths so the train follows the polyline exactly.
   const segLen = [];
   let total = 0;
   for (let i = 0; i < route.length - 1; i++) { const L = lngLatDist(route[i], route[i+1]); segLen.push(L); total += L; }
-  // Interpolate a [lng,lat] position at fraction `phase` (0..1) along the path.
   function posAt(phase) {
     let target = Math.max(0, Math.min(1, phase)) * total;
     for (let i = 0; i < segLen.length; i++) {
       if (target <= segLen[i] || i === segLen.length - 1) {
         const f = segLen[i] ? target / segLen[i] : 0;
-        return [route[i][0] + (route[i+1][0]-route[i][0])*f, route[i][1] + (route[i+1][1]-route[i][1])*f];
+        return [route[i][0]+(route[i+1][0]-route[i][0])*f, route[i][1]+(route[i+1][1]-route[i][1])*f];
       }
       target -= segLen[i];
     }
     return route[route.length - 1];
   }
 
-  // Build the iron-ore train as an SVG: a diesel locomotive pulling three hopper
-  // wagons. `loaded` heaps iron ore on the wagons (Zouérat → Nouadhibou); empty
-  // shows open hoppers on the return run (Nouadhibou → Zouérat).
+  // Build the iron-ore train SVG: locomotive + 3 hopper wagons.
+  // `loaded=true` = ore heaped on wagons (Zouérat→Nouadhibou);
+  // `loaded=false` = open empty hoppers (return leg).
   function trainSVG(loaded) {
     const wagon = (ox) => {
       const coupling = `<rect x="${ox-3}" y="18.5" width="4" height="1.6" fill="#4a4138"/>`;
-      const body = `<path d="M${ox} 12 L${ox+20} 12 L${ox+17} 22 L${ox+3} 22 Z" fill="#2c2824" stroke="#120d07" stroke-width="0.8"/>`;
-      const chassis = `<rect x="${ox+2}" y="22" width="16" height="1.8" fill="#1c150d"/>`;
-      const wheels = `<circle cx="${ox+5}" cy="25" r="2.4" fill="#0e0a05" stroke="#5a5048" stroke-width="0.6"/>`+
-                     `<circle cx="${ox+15}" cy="25" r="2.4" fill="#0e0a05" stroke="#5a5048" stroke-width="0.6"/>`;
+      const body     = `<path d="M${ox} 12 L${ox+20} 12 L${ox+17} 22 L${ox+3} 22 Z" fill="#2c2824" stroke="#120d07" stroke-width="0.8"/>`;
+      const chassis  = `<rect x="${ox+2}" y="22" width="16" height="1.8" fill="#1c150d"/>`;
+      const wheels   = `<circle cx="${ox+5}" cy="25" r="2.4" fill="#0e0a05" stroke="#5a5048" stroke-width="0.6"/>`+
+                       `<circle cx="${ox+15}" cy="25" r="2.4" fill="#0e0a05" stroke="#5a5048" stroke-width="0.6"/>`;
       const fill = loaded
         ? `<path d="M${ox+1} 12 Q${ox+6} 6.5 ${ox+10} 7.5 Q${ox+14} 6.5 ${ox+19} 12 Z" fill="url(#ore)"/>`+
           `<circle cx="${ox+6}" cy="9.7" r="1.1" fill="#9a5326"/><circle cx="${ox+11}" cy="9" r="1.2" fill="#a85b2b"/><circle cx="${ox+15}" cy="9.9" r="1" fill="#854720"/>`
@@ -683,19 +1122,17 @@ function addMarkers() {
   dirEl.className = 'train-dir';
   el.appendChild(dirEl);
 
-  let loaded = true;        // Zouérat → Nouadhibou: wagons full of iron ore
+  let loaded = true;
   dirEl.innerHTML = trainSVG(loaded);
 
   const sprite = new maplibregl.Marker({ element: el, anchor: 'center' })
     .setLngLat(route[0])
     .addTo(map);
 
-  const SPEED = 0.0006; // fraction of total route per frame (50% faster than 0.0004)
-  let going = 1; // +1 = Zouérat→Nouadhibou (westbound, loaded), -1 = return (empty)
-  let phase = 0; // 0..1 along full route
+  const SPEED = 0.0006; // fraction of total route per frame
+  let going = 1; // +1 = Zouérat→Nouadhibou (loaded), -1 = return (empty)
+  let phase = 0;
 
-  // Loaded leg travels west (left) and the locomotive is drawn facing left, so no
-  // flip; the empty return travels east, so mirror it to keep the loco in front.
   function applyDirection() { dirEl.style.transform = going === 1 ? 'scaleX(1)' : 'scaleX(-1)'; }
   function setLoaded(v) { if (v !== loaded) { loaded = v; dirEl.innerHTML = trainSVG(loaded); } }
   applyDirection();
@@ -703,14 +1140,59 @@ function addMarkers() {
   function tick() {
     phase += SPEED * going;
     if (phase >= 1) { phase = 1; going = -1; setLoaded(false); applyDirection(); }
-    if (phase <= 0) { phase = 0; going = 1; setLoaded(true);  applyDirection(); }
+    if (phase <= 0) { phase = 0; going =  1; setLoaded(true);  applyDirection(); }
     sprite.setLngLat(posAt(phase));
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 })();
 
-// ── Info panel ───────────────────────────────────────────────────────────────
+// ── Search + filter system (from Mapbox reference pattern) ────────────────────
+function updateCategoryCounts() {
+  const counts = { all: 0, nature: 0, historic: 0, transport: 0, city: 0 };
+  Object.keys(PLACES).forEach(id => {
+    counts.all++;
+    const cat = PLACES[id].category;
+    if (counts[cat] !== undefined) counts[cat]++;
+  });
+  Object.keys(counts).forEach(k => {
+    const el = document.getElementById('cnt-' + k);
+    if (el) el.textContent = counts[k];
+  });
+}
+
+function applyFilters() {
+  MARKERS.forEach(({ id, marker, cat, el }) => {
+    const show = currentCat === 'all' || cat === currentCat;
+    marker.getElement().style.opacity       = show ? '1'   : '0.07';
+    marker.getElement().style.pointerEvents = show ? 'all' : 'none';
+    if (!show && currentMarkerEl === el) deselectMarker();
+  });
+
+  // Train line visibility
+  const trainShow = currentCat === 'all' || currentCat === 'transport';
+  try {
+    map.setPaintProperty('train-line', 'line-opacity', trainShow ? .8 : .04);
+    map.setPaintProperty('train-bg',   'line-opacity', trainShow ? .18 : .02);
+  } catch(e) {}
+}
+
+function filterCat(el, cat) {
+  document.querySelectorAll('.legend-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  currentCat = cat;
+  applyFilters();
+}
+
+function resetAll() {
+  currentCat = 'all';
+  document.querySelectorAll('.legend-item').forEach((e, i) => e.classList.toggle('active', i === 0));
+  deselectMarker();
+  applyFilters();
+  fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: CONFIG.flyDuration });
+}
+
+// ── Info panel ────────────────────────────────────────────────────────────────
 const PLACE_KEYS = Object.keys(PLACES);
 let currentPlaceIdx = 0;
 
@@ -722,175 +1204,148 @@ function navPlace(dir) {
 function openPlace(id) {
   const p = PLACES[id];
   if (!p) return;
-  const c = CAT[p.category];
+  const c   = CAT[p.category];
   const idx = PLACE_KEYS.indexOf(id);
   if (idx >= 0) currentPlaceIdx = idx;
   document.getElementById('navCounter').textContent = `${currentPlaceIdx+1} / ${PLACE_KEYS.length}`;
 
-  document.getElementById('panelHero').innerHTML =
-    `<div class="panel-hero-ph" style="background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(0,0,0,0.2)),linear-gradient(135deg,${p.categoryColor}33,${p.categoryColor}55)">${p.emoji}</div>`;
+  // Hero: large SVG icon with category gradient background
+  const iconSvg = ICONS[PLACE_ICON[id] || 'city'];
+  // Inject explicit width/height into the svg tag so it renders at 80×80 without CSS dependency
+  const sizedSvg = iconSvg.replace('<svg ', '<svg width="80" height="80" ');
+  const hero = document.getElementById('panelHero');
+  hero.style.cssText = `background: linear-gradient(135deg, ${p.categoryColor}30, ${p.categoryColor}60), linear-gradient(160deg, #2a1a0a, #1a0f04); width:100%; height:155px; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;`;
+  hero.innerHTML = `<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 20px ${p.categoryColor})">${sizedSvg}</div>`;
 
   const badge = document.getElementById('panelCat');
   badge.textContent = p.category.charAt(0).toUpperCase() + p.category.slice(1);
   badge.style.cssText = `background:${c.bg};color:${c.text};border:1.5px solid ${c.border}`;
 
   document.getElementById('panelTitle').textContent = p.name;
-  document.getElementById('panelSub').textContent = p.subtitle;
-  document.getElementById('panelDesc').textContent = p.desc;
-  document.getElementById('panelFacts').innerHTML = p.facts.map(f =>
+  document.getElementById('panelSub').textContent   = p.subtitle;
+  document.getElementById('panelDesc').textContent  = p.desc;
+  document.getElementById('panelFacts').innerHTML   = p.facts.map(f =>
     `<div class="fact-card"><div class="fact-label">${f.label}</div><div class="fact-value">${f.value}</div></div>`
   ).join('');
   document.getElementById('panelLinks').innerHTML = p.links.map(l =>
-    `<a href="${l.url}" target="_blank" rel="noopener" class="link-btn ${l.style}"><span>${l.icon}</span>${l.label}</a>`
+    `<a href="${l.url}" target="_blank" rel="noopener" class="link-btn ${l.style}">${LINK_ICONS[l.icon] || ''}${l.label}</a>`
   ).join('');
 
   document.getElementById('infoPanel').classList.add('open');
   document.getElementById('backdrop').classList.add('open');
 
-  // Fly to location
   const coord = COORDS[id];
   if (coord) {
-    const terrainOpts = TERRAIN_LOCATIONS[id];
-    if (terrainOpts) {
-      enableTerrain();
-      map.flyTo({ center: coord, zoom: terrainOpts.zoom, bearing: terrainOpts.bearing, pitch: 45, duration: 1800, essential: true });
-    } else {
-      if (terrainEnabled) disableTerrain();
-      map.flyTo({ center: coord, zoom: id === 'train' ? 6 : 7.5, pitch: 0, bearing: 0, duration: 1400, essential: true });
-    }
+    fly({ center: coord, zoom: id === 'train' ? 6 : CONFIG.flyZoom, duration: 1400 });
   }
 }
 
 function closePanel() {
   document.getElementById('infoPanel').classList.remove('open');
   document.getElementById('backdrop').classList.remove('open');
-  if (terrainEnabled) disableTerrain();
-  map.easeTo({ pitch: 0, bearing: 0, zoom: 5.1, center: [-11.5, 20.0], duration: 1200 });
+  deselectMarker();
+  fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: 1200 });
 }
 
-function filterCat(el, cat) {
-  document.querySelectorAll('.legend-item').forEach(e => e.classList.remove('active'));
-  el.classList.add('active');
-  MARKERS.forEach(({ marker, cat: mCat }) => {
-    const show = cat === 'all' || mCat === cat;
-    marker.getElement().style.opacity = show ? '1' : '0.1';
-    marker.getElement().style.pointerEvents = show ? 'all' : 'none';
-  });
-  // Also toggle train line layer
-  const trainShow = cat === 'all' || cat === 'transport';
-  try {
-    map.setPaintProperty('train-line', 'line-opacity', trainShow ? 0.8 : 0.05);
-    map.setPaintProperty('train-bg', 'line-opacity', trainShow ? 0.18 : 0.02);
-  } catch(e) {}
-}
-
-// ── 3D Terrain ───────────────────────────────────────────────────────────────
-function enableTerrain() {
-  if (terrainEnabled) return;
-  try {
-    if (!map.getSource('terrain-dem')) {
-      map.addSource('terrain-dem', {
-        type: 'raster-dem',
-        tiles: ['https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
-        tileSize: 256,
-        maxzoom: 14,
-        encoding: 'terrarium'
-      });
-    }
-    map.setTerrain({ source: 'terrain-dem', exaggeration: 2.0 });
-    terrainEnabled = true;
-    const badge = document.getElementById('terrainBadge');
-    badge.classList.add('show');
-    setTimeout(() => badge.classList.remove('show'), 2000);
-  } catch(e) {}
-}
-
-function disableTerrain() {
-  if (!terrainEnabled) return;
-  try {
-    map.setTerrain(null);
-    terrainEnabled = false;
-  } catch(e) {}
-}
-
-// ── Sand particle system ─────────────────────────────────────────────────────
+// ── Sand particle system (throttled to ~25 fps, 20 particles) ─────────────────
 const sandCanvas = document.getElementById('sandCanvas');
 const ctx = sandCanvas.getContext('2d');
 let particles = [];
 let sandPaused = false;
-let animId;
+let sandHidden = false; // paused when tab not visible
 
 function resizeSand() {
-  sandCanvas.width = window.innerWidth;
+  sandCanvas.width  = window.innerWidth;
   sandCanvas.height = window.innerHeight;
 }
 resizeSand();
 window.addEventListener('resize', resizeSand);
 
-function mkParticle() {
+function mkParticle(small) {
+  // Mix: 60% small grains, 40% larger specks for visible depth
+  const big = !small && Math.random() > .6;
   return {
     x: Math.random() * sandCanvas.width,
     y: Math.random() * sandCanvas.height,
-    vx: 0.12 + Math.random() * 0.22,
-    vy: 0.04 + Math.random() * 0.14,
-    size: 0.8 + Math.random() * 1.6,
-    opacity: 0.18 + Math.random() * 0.38,
+    vx: (big ? .12 : .22) + Math.random() * .30,
+    vy: (big ? .03 : .06) + Math.random() * .14,
+    size: big ? 2.2 + Math.random() * 1.8 : 1.0 + Math.random() * 1.4,
+    opacity: big ? .35 + Math.random() * .35 : .28 + Math.random() * .32,
   };
 }
-
-for (let i = 0; i < 45; i++) particles.push(mkParticle());
+for (let i = 0; i < 55; i++) particles.push(mkParticle());
 
 function drawSand() {
-  if (sandPaused) { animId = requestAnimationFrame(drawSand); return; }
-  ctx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
-  particles.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(232,200,122,${p.opacity})`;
-    ctx.fill();
-    p.x += p.vx;
-    p.y += p.vy;
-    if (p.x > sandCanvas.width + 2) { p.x = -2; p.y = Math.random() * sandCanvas.height; }
-    if (p.y > sandCanvas.height + 2) { p.y = -2; p.x = Math.random() * sandCanvas.width; }
-  });
-  animId = requestAnimationFrame(drawSand);
+  if (!sandPaused && !sandHidden) {
+    ctx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
+    particles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(232,200,122,${p.opacity})`;
+      ctx.fill();
+      p.x += p.vx; p.y += p.vy;
+      if (p.x > sandCanvas.width  + 2) { p.x = -2; p.y = Math.random() * sandCanvas.height; }
+      if (p.y > sandCanvas.height + 2) { p.y = -2; p.x = Math.random() * sandCanvas.width;  }
+    });
+  }
+  // ~30 fps
+  setTimeout(() => requestAnimationFrame(drawSand), 33);
 }
 drawSand();
 
-// Pause particles when info panel open (less visual noise)
-const panelObserver = new MutationObserver(() => {
+// Pause particles when info panel open or tab hidden
+new MutationObserver(() => {
   sandPaused = document.getElementById('infoPanel').classList.contains('open');
-});
-panelObserver.observe(document.getElementById('infoPanel'), { attributes: true, attributeFilter: ['class'] });
+}).observe(document.getElementById('infoPanel'), { attributes: true, attributeFilter: ['class'] });
 
-// ── Music ────────────────────────────────────────────────────────────────────
+document.addEventListener('visibilitychange', () => {
+  sandHidden = document.hidden;
+});
+
+// ── Music ─────────────────────────────────────────────────────────────────────
 const SONGS = [
   { id: 'y5VoQps0Y3w', title: 'El Belloutou' },
   { id: 'z2Bf5In027A', title: 'Tikifit' },
   { id: 'wvvlkVpS2Vo', title: 'Tikifit (DJ Dahker)', start: 205 },
 ];
 const picked = SONGS[Math.floor(Math.random() * SONGS.length)];
-const YT_ID = picked.id;
 document.getElementById('musicLabel').textContent = picked.title;
 
-let musicOn = false;
-const btn = document.getElementById('musicBtn');
-const pulse = document.getElementById('musicPulse');
-const ytDiv = document.getElementById('ytPlayer');
+let musicOn  = false;
+const btn    = document.getElementById('musicBtn');
+const mIcon  = document.getElementById('musicIcon');
+const pulse  = document.getElementById('musicPulse');
+const ytDiv  = document.getElementById('ytPlayer');
 const overlay = document.getElementById('musicOverlay');
+
+const PLAY_PATH  = '<path d="M8 5v14l11-7z"/>';
+const PAUSE_PATH = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
 
 function startMusic() {
   const start = picked.start ? `&start=${picked.start}` : '';
-  ytDiv.innerHTML = `<iframe src="https://www.youtube.com/embed/${YT_ID}?autoplay=1&loop=1&playlist=${YT_ID}&controls=0&rel=0&modestbranding=1${start}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-  ytDiv.style.display = 'block';
+  ytDiv.innerHTML = `<iframe src="https://www.youtube.com/embed/${picked.id}?autoplay=1&loop=1&playlist=${picked.id}&controls=0&rel=0&modestbranding=1${start}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
   musicOn = true;
-  btn.innerHTML = '⏸ &nbsp;Pause';
+  btn.childNodes[0].innerHTML = PAUSE_PATH;
+  btn.lastChild.textContent = ' Pause';
   pulse.style.display = 'block';
 }
 
 function handleOverlayTap() {
   overlay.style.display = 'none';
   startMusic();
+  // Fly in from Africa overview → Mauritania resting view
+  map.flyTo({
+    center:   CONFIG.center,
+    zoom:     CONFIG.restingZoom,
+    essential: true,
+    duration:  CONFIG.introDuration,
+    easing:    cubicOut,
+  });
+  // Once the intro animation settles, constrain the map
+  map.once('moveend', () => {
+    map.setMinZoom(CONFIG.minZoom);
+    map.setMaxBounds([[-26, 10], [4, 35]]);
+  });
 }
 
 function toggleMusic() {
@@ -899,7 +1354,8 @@ function toggleMusic() {
   } else {
     ytDiv.innerHTML = '';
     musicOn = false;
-    btn.innerHTML = '🎵 &nbsp;Play';
+    btn.childNodes[0].innerHTML = PLAY_PATH;
+    btn.lastChild.textContent = ' Play Music';
     pulse.style.display = 'none';
   }
 }
