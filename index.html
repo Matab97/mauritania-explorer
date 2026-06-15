@@ -21,41 +21,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--ink); }
 
-    /* ── Very faint star field ── */
-    .stars {
-      position: fixed; inset: 0; z-index: 1; pointer-events: none;
-      background-image:
-        radial-gradient(1px 1px at 8%  15%, rgba(232,200,122,.13) 0%, transparent 100%),
-        radial-gradient(1px 1px at 22% 8%,  rgba(232,200,122,.10) 0%, transparent 100%),
-        radial-gradient(1px 1px at 55% 6%,  rgba(232,200,122,.12) 0%, transparent 100%),
-        radial-gradient(1px 1px at 77% 12%, rgba(232,200,122,.08) 0%, transparent 100%),
-        radial-gradient(1px 1px at 90% 5%,  rgba(232,200,122,.11) 0%, transparent 100%),
-        radial-gradient(1px 1px at 35% 85%, rgba(232,200,122,.07) 0%, transparent 100%),
-        radial-gradient(1px 1px at 65% 78%, rgba(232,200,122,.09) 0%, transparent 100%),
-        radial-gradient(1px 1px at 15% 70%, rgba(232,200,122,.06) 0%, transparent 100%),
-        radial-gradient(1px 1px at 48% 88%, rgba(232,200,122,.08) 0%, transparent 100%),
-        radial-gradient(1px 1px at 88% 75%, rgba(232,200,122,.10) 0%, transparent 100%);
-    }
-
     /* ── Sand particle canvas ── */
     #sandCanvas { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
-
-    /* ── Heat shimmer ── */
-    #shimmer {
-      position: fixed; inset: 0; pointer-events: none; z-index: 3;
-      background: linear-gradient(180deg,
-        rgba(232,200,122,0) 0%,
-        rgba(232,200,122,.04) 40%,
-        rgba(232,200,122,.07) 50%,
-        rgba(232,200,122,.04) 60%,
-        rgba(232,200,122,0) 100%);
-      animation: shimmer 5s ease-in-out infinite;
-    }
-    @keyframes shimmer {
-      0%,100% { transform: scaleY(1) translateY(0); opacity: .5; }
-      30%     { transform: scaleY(1.003) translateY(-1.5px); opacity: .85; }
-      70%     { transform: scaleY(.998) translateY(1px); opacity: .35; }
-    }
 
     /* ── App shell ── */
     #app { position: relative; z-index: 4; width: 100%; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -90,7 +57,7 @@
     }
     .search-input {
       width: 100%;
-      background: rgba(0,0,0,.5);
+      background: rgba(0,0,0,.72);
       border: 1.5px solid rgba(232,200,122,.16);
       color: var(--sand);
       font-family: 'Inter', sans-serif;
@@ -99,7 +66,6 @@
       border-radius: 99px;
       outline: none;
       transition: border-color .2s, box-shadow .2s;
-      backdrop-filter: blur(6px);
     }
     .search-input::placeholder { color: #6b5d42; }
     .search-input:focus {
@@ -126,8 +92,8 @@
       display: flex; align-items: center; gap: 5px;
       font-size: .7rem; color: #c8a870; cursor: pointer;
       padding: 3px 9px; border-radius: 99px;
-      background: rgba(0,0,0,.55); border: 1.5px solid rgba(255,255,255,.1);
-      transition: all .2s; backdrop-filter: blur(6px);
+      background: rgba(0,0,0,.72); border: 1.5px solid rgba(255,255,255,.1);
+      transition: background .2s, border-color .2s, color .2s;
     }
     .legend-item:hover, .legend-item.active {
       border-color: #c0622a; background: rgba(192,98,42,.35); color: var(--gold);
@@ -169,9 +135,9 @@
       border: 2px solid rgba(255,255,255,.22);
       box-shadow: 0 3px 14px rgba(0,0,0,.65);
       transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
-      background: rgba(20,12,4,.88);
-      backdrop-filter: blur(6px);
+      background: #140c04;
       position: relative;
+      will-change: transform;
     }
     .mb-icon svg { width: 22px; height: 22px; display: block; }
     .mb-marker:hover .mb-icon { transform: scale(1.18); box-shadow: 0 6px 22px rgba(0,0,0,.85); }
@@ -233,15 +199,8 @@
     .train-sprite svg { display: block; width: 76px; height: auto;
       filter: drop-shadow(0 3px 5px rgba(0,0,0,.75)); transition: transform .15s; }
     .train-sprite:hover svg { transform: scale(1.12); }
-    .train-smoke { transform-box: fill-box; transform-origin: center;
-      animation: trainSmoke 2.1s linear infinite; }
-    .train-smoke.s2 { animation-delay: .7s; }
-    .train-smoke.s3 { animation-delay: 1.4s; }
-    @keyframes trainSmoke {
-      0%   { opacity: 0; transform: translate(0,0) scale(.4); }
-      15%  { opacity: .5; }
-      100% { opacity: 0; transform: translate(-5px,-11px) scale(1.5); }
-    }
+    /* Smoke circles hidden — saved 3 simultaneous animations */
+    .train-smoke { display: none; }
     .train-car { transform-box: fill-box; transform-origin: 50% 92%;
       animation: carWobble .85s ease-in-out infinite; }
     .train-car.c1 { animation-delay: .12s; }
@@ -256,11 +215,10 @@
     #worldInset {
       position: fixed; bottom: 48px; left: 12px; z-index: 20;
       width: 84px; height: 64px;
-      background: rgba(10,6,2,.85);
+      background: rgba(10,6,2,.9);
       border: 1px solid rgba(232,200,122,.2);
       border-radius: 8px;
       overflow: hidden;
-      backdrop-filter: blur(4px);
       box-shadow: 0 2px 14px rgba(0,0,0,.55);
     }
     .inset-label {
@@ -307,16 +265,16 @@
       padding: 5px 12px 10px;
     }
     .music-btn {
-      background: rgba(192,98,42,.45); border: 1.5px solid rgba(192,98,42,.8); color: var(--gold);
+      background: rgba(192,98,42,.5); border: 1.5px solid rgba(192,98,42,.8); color: var(--gold);
       border-radius: 99px; padding: 6px 18px; font-size: .8rem; font-weight: 600; cursor: pointer;
-      display: flex; align-items: center; gap: 7px; transition: all .2s; backdrop-filter: blur(4px);
+      display: flex; align-items: center; gap: 7px; transition: background .2s, transform .2s;
       white-space: nowrap; box-shadow: 0 2px 12px rgba(192,98,42,.3);
     }
-    .music-btn:hover { background: rgba(192,98,42,.65); transform: scale(1.03); }
+    .music-btn:hover { background: rgba(192,98,42,.72); transform: scale(1.03); }
     .music-info {
       font-size: .78rem; color: var(--gold); font-style: italic;
-      background: rgba(0,0,0,.45); padding: 4px 12px; border-radius: 99px;
-      border: 1px solid rgba(232,200,122,.2); backdrop-filter: blur(6px);
+      background: rgba(0,0,0,.72); padding: 4px 12px; border-radius: 99px;
+      border: 1px solid rgba(232,200,122,.2);
       max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .music-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--terracotta); flex-shrink: 0; animation: mpulse 1.2s ease-in-out infinite; }
@@ -328,10 +286,9 @@
     /* ── iOS tap-to-start overlay ── */
     #musicOverlay {
       position: fixed; inset: 0; z-index: 60;
-      background: rgba(8,4,1,.92);
+      background: rgba(8,4,1,.96);
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-      backdrop-filter: blur(14px); cursor: pointer;
-      overflow: hidden;
+      cursor: pointer; overflow: hidden;
     }
     /* Dune silhouette at bottom */
     .overlay-dunes {
@@ -373,7 +330,7 @@
     @keyframes pulse-btn { 0%,100% { box-shadow: 0 0 0 0 rgba(192,98,42,.4); } 50% { box-shadow: 0 0 0 14px rgba(192,98,42,0); } }
 
     /* ── Info panel ── */
-    .panel-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 40; backdrop-filter: blur(3px); }
+    .panel-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 40; }
     .panel-backdrop.open { display: block; }
     .info-panel {
       position: fixed; right: -420px; top: 0; width: 360px; max-width: 96vw; height: 100vh;
@@ -441,22 +398,14 @@
     .link-google    { background: #4285f4; color: white; }
     .link-maps      { background: #34a853; color: white; }
 
-    /* ── Terrain badge ── */
-    #terrainBadge {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      background: rgba(192,98,42,.7); color: var(--gold);
-      padding: 5px 14px; border-radius: 99px; font-size: .65rem; font-weight: 600; letter-spacing: 1px;
-      z-index: 55; pointer-events: none; opacity: 0; transition: opacity .4s;
-      display: flex; align-items: center; gap: 6px;
-    }
-    #terrainBadge.show { opacity: 1; }
+    /* info-panel slides in — composited on its own layer */
+    .info-panel { will-change: right; }
+    @media (max-width: 640px) { .info-panel { will-change: bottom; } }
   </style>
 </head>
 <body>
 
-<div class="stars"></div>
 <canvas id="sandCanvas"></canvas>
-<div id="shimmer"></div>
 
 <div id="app">
   <header>
@@ -616,28 +565,20 @@
   </div>
 </div>
 
-<div id="terrainBadge">
-  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M1 21h22L12 2 1 21zm3.3-2L12 6.2 19.7 19H4.3z"/>
-  </svg>
-  3D TERRAIN
-</div>
 
-<a href="https://abbad.app" style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(192,98,42,.35);border:1px solid rgba(192,98,42,.5);color:#e8c87a;padding:3px 10px;border-radius:99px;font-size:.62rem;font-weight:600;text-decoration:none;backdrop-filter:blur(4px);">← home</a>
+<a href="https://abbad.app" style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(192,98,42,.5);border:1px solid rgba(192,98,42,.6);color:#e8c87a;padding:3px 10px;border-radius:99px;font-size:.62rem;font-weight:600;text-decoration:none;">← home</a>
 
 <script>
 // ── CONFIG (from Mapbox reference pattern) ────────────────────────────────────
 const CONFIG = {
-  center:              [-11.5, 20.0],
-  startZoom:           4.4,
-  restingZoom:         5.1,
-  flyZoom:             7.5,
-  flyDuration:         1800,
-  initialFlyDuration:  2400,
-  pitch:               0,
-  bearing:             0,
-  minZoom:             4.0,
-  maxZoom:             14,
+  center:             [-11.5, 20.0],
+  startZoom:          4.4,
+  restingZoom:        5.1,
+  flyZoom:            7.5,
+  flyDuration:        1800,
+  initialFlyDuration: 2400,
+  minZoom:            4.0,
+  maxZoom:            14,
 };
 
 // ── Easing (cubic-out — from Mapbox reference pattern) ────────────────────────
@@ -843,12 +784,6 @@ const CAT = {
   city:      { bg:'rgba(140,120,80,.2)',  text:'#d0b880', border:'#9e8b6e' },
 };
 
-const TERRAIN_LOCATIONS = {
-  richat:   { zoom: 8.5, bearing:  20 },
-  atar:     { zoom: 9,   bearing: -10 },
-  terjit:   { zoom: 10,  bearing:  15 },
-  benamera: { zoom: 9,   bearing:  30 },
-};
 
 const COORDS = {
   richat:     [-11.402, 21.117],
@@ -871,7 +806,6 @@ const TRAIN_LINE = [[-12.4851,22.772],[-12.5977,22.7277],[-12.6375,22.7031],[-12
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const MARKERS = [];
-let terrainEnabled  = false;
 let map;
 let currentMarkerEl = null;   // emphasize/deselect pattern
 let currentCat      = 'all';
@@ -884,21 +818,21 @@ map = new maplibregl.Map({
   style: 'https://tiles.openfreemap.org/styles/dark',
   center: CONFIG.center,
   zoom:   CONFIG.startZoom,
-  minZoom: 3.5,
+  minZoom: CONFIG.minZoom,
   maxZoom: CONFIG.maxZoom,
   attributionControl: true,
   maxBounds: [[-26, 10], [4, 35]],
-  pitchWithRotate: true,
+  pitchWithRotate: false,
+  fadeDuration: 100,
 });
 
-map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
 map.on('style.load', () => {
   applyDesertPalette();
   addTrainLayer();
   addOceanShimmer();
   addMarkers();
-  startOceanPulse();
   updateCategoryCounts();
   // Gentle initial zoom-in to resting position
   fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: CONFIG.initialFlyDuration });
@@ -907,14 +841,12 @@ map.on('style.load', () => {
 // ── fly() — centralised flyTo with cubic-out easing (from Mapbox reference) ──
 function fly(opts) {
   const o = Object.assign(
-    { center: CONFIG.center, zoom: CONFIG.restingZoom, duration: CONFIG.flyDuration, pitch: 0, bearing: 0 },
+    { center: CONFIG.center, zoom: CONFIG.restingZoom, duration: CONFIG.flyDuration },
     opts
   );
   map.flyTo({
-    center:   o.center,
-    zoom:     o.zoom,
-    pitch:    o.pitch,
-    bearing:  o.bearing,
+    center:    o.center,
+    zoom:      o.zoom,
     essential: true,
     duration:  o.duration,
     easing:    cubicOut,
@@ -986,15 +918,6 @@ function addOceanShimmer() {
     id: 'ocean-shimmer-layer', type: 'fill', source: 'ocean-shimmer',
     paint: { 'fill-color': '#3a8fa8', 'fill-opacity': .05 }
   });
-}
-
-let wavePhase = 0;
-function startOceanPulse() {
-  setInterval(() => {
-    wavePhase = (wavePhase + .04) % (Math.PI * 2);
-    const opacity = .04 + Math.sin(wavePhase) * .03;
-    try { map.setPaintProperty('ocean-shimmer-layer', 'fill-opacity', opacity); } catch(e) {}
-  }, 120);
 }
 
 // ── Markers with custom SVG icons ─────────────────────────────────────────────
@@ -1309,14 +1232,7 @@ function openPlace(id) {
 
   const coord = COORDS[id];
   if (coord) {
-    const terrainOpts = TERRAIN_LOCATIONS[id];
-    if (terrainOpts) {
-      enableTerrain();
-      fly({ center: coord, zoom: terrainOpts.zoom, bearing: terrainOpts.bearing, pitch: 45, duration: 1800 });
-    } else {
-      if (terrainEnabled) disableTerrain();
-      fly({ center: coord, zoom: id === 'train' ? 6 : CONFIG.flyZoom, duration: 1400 });
-    }
+    fly({ center: coord, zoom: id === 'train' ? 6 : CONFIG.flyZoom, duration: 1400 });
   }
 }
 
@@ -1324,39 +1240,15 @@ function closePanel() {
   document.getElementById('infoPanel').classList.remove('open');
   document.getElementById('backdrop').classList.remove('open');
   deselectMarker();
-  if (terrainEnabled) disableTerrain();
   fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: 1200 });
 }
 
-// ── 3D Terrain ────────────────────────────────────────────────────────────────
-function enableTerrain() {
-  if (terrainEnabled) return;
-  try {
-    if (!map.getSource('terrain-dem')) {
-      map.addSource('terrain-dem', {
-        type: 'raster-dem',
-        tiles: ['https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
-        tileSize: 256, maxzoom: 14, encoding: 'terrarium'
-      });
-    }
-    map.setTerrain({ source: 'terrain-dem', exaggeration: 2.0 });
-    terrainEnabled = true;
-    const badge = document.getElementById('terrainBadge');
-    badge.classList.add('show');
-    setTimeout(() => badge.classList.remove('show'), 2200);
-  } catch(e) {}
-}
-
-function disableTerrain() {
-  if (!terrainEnabled) return;
-  try { map.setTerrain(null); terrainEnabled = false; } catch(e) {}
-}
-
-// ── Sand particle system ──────────────────────────────────────────────────────
+// ── Sand particle system (throttled to ~25 fps, 20 particles) ─────────────────
 const sandCanvas = document.getElementById('sandCanvas');
 const ctx = sandCanvas.getContext('2d');
 let particles = [];
 let sandPaused = false;
+let sandHidden = false; // paused when tab not visible
 
 function resizeSand() {
   sandCanvas.width  = window.innerWidth;
@@ -1369,33 +1261,40 @@ function mkParticle() {
   return {
     x: Math.random() * sandCanvas.width,
     y: Math.random() * sandCanvas.height,
-    vx: .12 + Math.random() * .22,
-    vy: .04 + Math.random() * .14,
-    size: .8 + Math.random() * 1.6,
-    opacity: .16 + Math.random() * .36,
+    vx: .18 + Math.random() * .28,
+    vy: .05 + Math.random() * .15,
+    size: .9 + Math.random() * 1.5,
+    opacity: .18 + Math.random() * .32,
   };
 }
-for (let i = 0; i < 55; i++) particles.push(mkParticle());
+for (let i = 0; i < 20; i++) particles.push(mkParticle());
 
 function drawSand() {
-  if (sandPaused) { requestAnimationFrame(drawSand); return; }
-  ctx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
-  particles.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(232,200,122,${p.opacity})`;
-    ctx.fill();
-    p.x += p.vx; p.y += p.vy;
-    if (p.x > sandCanvas.width  + 2) { p.x = -2; p.y = Math.random() * sandCanvas.height; }
-    if (p.y > sandCanvas.height + 2) { p.y = -2; p.x = Math.random() * sandCanvas.width;  }
-  });
-  requestAnimationFrame(drawSand);
+  if (!sandPaused && !sandHidden) {
+    ctx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
+    particles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(232,200,122,${p.opacity})`;
+      ctx.fill();
+      p.x += p.vx; p.y += p.vy;
+      if (p.x > sandCanvas.width  + 2) { p.x = -2; p.y = Math.random() * sandCanvas.height; }
+      if (p.y > sandCanvas.height + 2) { p.y = -2; p.x = Math.random() * sandCanvas.width;  }
+    });
+  }
+  // ~25 fps — skip every other frame to cut CPU in half vs rAF at 60 fps
+  setTimeout(() => requestAnimationFrame(drawSand), 40);
 }
 drawSand();
 
+// Pause particles when info panel open or tab hidden
 new MutationObserver(() => {
   sandPaused = document.getElementById('infoPanel').classList.contains('open');
 }).observe(document.getElementById('infoPanel'), { attributes: true, attributeFilter: ['class'] });
+
+document.addEventListener('visibilitychange', () => {
+  sandHidden = document.hidden;
+});
 
 // ── Music ─────────────────────────────────────────────────────────────────────
 const SONGS = [
