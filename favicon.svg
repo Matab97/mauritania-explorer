@@ -1,6 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="14" fill="#1a1208"/>
-  <circle cx="46" cy="18" r="5" fill="#e8c87a"/>
-  <path d="M7,42 Q18,24 30,35 Q42,46 55,27" stroke="#c0622a" stroke-width="4.2" fill="none" stroke-linecap="round"/>
-  <path d="M7,51 Q20,36 33,44 Q45,51 57,37" stroke="#e8c87a" stroke-width="2.8" fill="none" stroke-linecap="round" opacity=".7"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#211608"/>
+      <stop offset="1" stop-color="#160f06"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- Crescent + star (national motif) -->
+  <path d="M40,9 A11 11 0 1 0 40,31 A8.2 8.2 0 1 1 40,9 Z" fill="#f0c14b"/>
+  <path transform="translate(48 11) scale(0.62)" fill="#f0c14b"
+        d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.8L12 17.3 5.8 20.2l1.6-6.8L2.2 8.9l6.9-.6z"/>
+  <!-- Dune-wave ridges -->
+  <path d="M7,44 Q18,28 30,38 Q42,48 57,30" stroke="#c0622a" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+  <path d="M7,53 Q20,38 33,46 Q45,53 57,39" stroke="#e8c87a" stroke-width="2.8" fill="none" stroke-linecap="round" opacity=".7"/>
 </svg>

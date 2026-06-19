@@ -10,26 +10,93 @@
   <link rel="icon" type="image/svg+xml" sizes="any" href="favicon.svg"/>
   <link rel="apple-touch-icon" href="favicon.svg"/>
   <link rel="mask-icon" href="favicon.svg" color="#c0622a"/>
-  <meta name="theme-color" content="#1a1208"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#160f06"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet"/>
   <style>
-    /* ── Design tokens ── */
+    /* ── Design tokens — layered Saharan-nomad palette ── */
     :root {
-      --sand: #e8d5a3; --sand-dark: #c9b07a; --sand-light: #f5ead0;
-      --terracotta: #c0622a; --terracotta-dark: #8b4115;
-      --ink: #1a1208; --stone: #9e8b6e; --stone-dark: #6b5d42; --gold: #e8c87a;
-      --teal: #4a9db5;
-      --col-nature: #6a8c4f; --col-historic: #c0622a;
-      --col-transport: #4a9db5; --col-city: #9e8b6e;
+      /* Sand & dune grades (light → deep) */
+      --sand-light: #f6ecd2; --sand: #e8d5a3; --sand-dark: #c9b07a;
+      --dune: #b8975c; --dune-shadow: #8a6d3c;
+      /* Night & ground */
+      --ink: #160f06; --ink-2: #211608; --night: #0b0a14;
+      /* Warm accents */
+      --terracotta: #c0622a; --terracotta-dark: #8b4115; --henna: #9c3a1e;
+      --gold: #e8c87a; --saffron: #f0b429;
+      /* Cool accents */
+      --stone: #9e8b6e; --stone-dark: #6b5d42; --teal: #4a9db5; --oasis: #3a8fa8;
+      /* National-flag cue (green star & crescent / gold) */
+      --flag-green: #1f6f4a; --flag-gold: #f0c14b;
+      /* Hairlines & glow */
+      --line: rgba(232,200,122,.18); --line-soft: rgba(232,200,122,.1);
+      /* Category accents (harmonized) */
+      --col-nature: #7aa055; --col-historic: #c0622a;
+      --col-transport: #4a9db5; --col-city: #b39a6f;
+      /* Display + body type */
+      --font-display: 'Reem Kufi', 'Amiri', serif;
+      --font-serif: 'Amiri', serif;
+      --font-body: 'Inter', sans-serif;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--ink); }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: var(--font-body); background: var(--ink); }
 
     /* ── Sand particle canvas ── */
     #sandCanvas { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+
+    /* ── Signature sand-wave transition ──
+       A dune curtain washes in from one side, fully covers at the crest
+       (when panel content is swapped in), then recedes to reveal it. */
+    #sandWave {
+      position: fixed; inset: 0; z-index: 120; pointer-events: none;
+      display: none; transform: translateX(112%); will-change: transform;
+    }
+    #sandWave.run    { display: block; animation: sandWash 1000ms cubic-bezier(.45,0,.25,1) forwards; }
+    #sandWave.recede { display: block; animation: sandRecede 720ms cubic-bezier(.45,0,.25,1) forwards; }
+    /* Solid dune body — full coverage at the crest */
+    .sw-body {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(105deg, rgba(0,0,0,.18), transparent 40%),
+        linear-gradient(160deg, var(--saffron) 0%, var(--dune) 38%, var(--terracotta) 78%, var(--henna) 100%);
+    }
+    /* Wavy dune ridges riding the leading/trailing edges */
+    .sw-edge { position: absolute; top: 0; height: 100%; width: 18vw; }
+    .sw-edge.lead  { right: 100%; }
+    .sw-edge.trail { left: 100%; transform: scaleX(-1); }
+    .sw-edge svg { width: 100%; height: 100%; display: block; }
+    /* Drifting grain texture */
+    .sw-grain {
+      position: absolute; inset: -10%;
+      background-image:
+        radial-gradient(1.4px 1.4px at 12% 22%, rgba(255,245,210,.5) 0, transparent 100%),
+        radial-gradient(1.2px 1.2px at 38% 64%, rgba(120,70,30,.45) 0, transparent 100%),
+        radial-gradient(1.6px 1.6px at 66% 30%, rgba(255,245,210,.4) 0, transparent 100%),
+        radial-gradient(1.2px 1.2px at 84% 72%, rgba(120,70,30,.4) 0, transparent 100%),
+        radial-gradient(1.3px 1.3px at 52% 88%, rgba(255,245,210,.35) 0, transparent 100%),
+        radial-gradient(1.1px 1.1px at 24% 80%, rgba(255,245,210,.3) 0, transparent 100%);
+      background-size: 240px 240px; opacity: .7;
+      animation: swGrain 1.2s linear infinite;
+    }
+    @keyframes sandWash {
+      0%   { transform: translateX(112%); }
+      46%  { transform: translateX(0%);   }
+      56%  { transform: translateX(0%);   }
+      100% { transform: translateX(-112%);}
+    }
+    @keyframes sandRecede {
+      0%   { transform: translateX(0%);   }
+      100% { transform: translateX(-112%);}
+    }
+    @keyframes swGrain {
+      from { background-position: 0 0; }
+      to   { background-position: -120px 30px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #sandWave, #sandWave.run, #sandWave.recede { display: none !important; animation: none !important; }
+    }
 
     /* ── App shell ── */
     #app { position: relative; z-index: 4; width: 100%; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -61,27 +128,35 @@
     .legend-item {
       display: flex; align-items: center; gap: 6px;
       font-size: .72rem; font-weight: 500; letter-spacing: .2px;
-      color: #8a7860; cursor: pointer;
+      color: #a08a68; cursor: pointer;
       padding: 5px 12px; border-radius: 99px;
-      background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1);
+      background: linear-gradient(180deg, rgba(120,86,44,.22), rgba(60,42,20,.28));
+      border: 1px solid var(--line-soft);
+      box-shadow: inset 0 1px 0 rgba(255,245,210,.06);
       transition: transform .15s ease, background .2s, border-color .2s, color .2s,
                   box-shadow .2s;
       user-select: none;
     }
     .legend-item:hover {
       transform: translateY(-1px);
-      background: rgba(255,255,255,.09);
-      color: var(--sand); border-color: rgba(255,255,255,.2);
+      background: linear-gradient(180deg, rgba(150,108,56,.3), rgba(80,56,28,.34));
+      color: var(--sand); border-color: var(--line);
     }
     /* Per-category active state — each gets its own colour */
     .legend-item.active                    { color: var(--gold);  transform: translateY(-1px); }
-    .legend-item.active[data-cat="all"]    { background: rgba(158,139,110,.3); border-color: #9e8b6e; box-shadow: 0 0 12px rgba(158,139,110,.3); }
-    .legend-item.active[data-cat="nature"] { background: rgba(106,140,79,.3);  border-color: #6a8c4f; box-shadow: 0 0 12px rgba(106,140,79,.3); }
-    .legend-item.active[data-cat="historic"]  { background: rgba(192,98,42,.3);  border-color: #c0622a; box-shadow: 0 0 12px rgba(192,98,42,.3); }
-    .legend-item.active[data-cat="transport"] { background: rgba(74,157,181,.3); border-color: #4a9db5; box-shadow: 0 0 12px rgba(74,157,181,.3); }
-    .legend-item.active[data-cat="city"]   { background: rgba(158,139,110,.3);  border-color: #9e8b6e; box-shadow: 0 0 12px rgba(158,139,110,.3); }
-    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transition: transform .2s; }
-    .legend-item.active .legend-dot { transform: scale(1.3); }
+    .legend-item.active[data-cat="all"]    { background: rgba(179,154,111,.3); border-color: #b39a6f; box-shadow: 0 0 12px rgba(179,154,111,.32); }
+    .legend-item.active[data-cat="nature"] { background: rgba(122,160,85,.3);  border-color: #7aa055; box-shadow: 0 0 12px rgba(122,160,85,.32); }
+    .legend-item.active[data-cat="historic"]  { background: rgba(192,98,42,.3);  border-color: #c0622a; box-shadow: 0 0 12px rgba(192,98,42,.32); }
+    .legend-item.active[data-cat="transport"] { background: rgba(74,157,181,.3); border-color: #4a9db5; box-shadow: 0 0 12px rgba(74,157,181,.32); }
+    .legend-item.active[data-cat="city"]   { background: rgba(179,154,111,.3);  border-color: #b39a6f; box-shadow: 0 0 12px rgba(179,154,111,.32); }
+    .legend-dot {
+      width: 16px; height: 16px; flex-shrink: 0; display: flex;
+      align-items: center; justify-content: center;
+      transition: transform .2s, filter .2s; filter: saturate(.6) opacity(.8);
+    }
+    .legend-dot svg { width: 100%; height: 100%; display: block; }
+    .legend-item:hover .legend-dot { filter: saturate(1) opacity(1); }
+    .legend-item.active .legend-dot { transform: scale(1.22); filter: saturate(1.1) opacity(1) drop-shadow(0 0 4px currentColor); }
     .cat-count {
       background: rgba(255,255,255,.1); border-radius: 99px;
       padding: 1px 6px; font-size: .62rem; font-weight: 700;
@@ -136,9 +211,9 @@
       width: 42px; height: 42px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       border: 2px solid rgba(255,255,255,.22);
-      box-shadow: 0 3px 14px rgba(0,0,0,.65);
+      box-shadow: 0 3px 14px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,245,210,.12);
       transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
-      background: #140c04;
+      background: radial-gradient(circle at 50% 32%, #2a1c0c 0%, #140c04 72%);
       position: relative;
       will-change: transform;
     }
@@ -159,10 +234,10 @@
     .mb-marker[data-cat="city"]      .mb-icon { border-color: var(--col-city); }
 
     /* Per-category glow when emphasized */
-    .mb-marker.emphasized[data-cat="nature"]    .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(106,140,79,.55); }
+    .mb-marker.emphasized[data-cat="nature"]    .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(122,160,85,.55); }
     .mb-marker.emphasized[data-cat="historic"]  .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(192,98,42,.55); }
     .mb-marker.emphasized[data-cat="transport"] .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(74,157,181,.55); }
-    .mb-marker.emphasized[data-cat="city"]      .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(158,139,110,.55); }
+    .mb-marker.emphasized[data-cat="city"]      .mb-icon { box-shadow: 0 8px 28px rgba(0,0,0,.9), 0 0 22px rgba(179,154,111,.55); }
 
     .mb-label {
       font-size: 9px; font-weight: 600; letter-spacing: .3px;
@@ -256,8 +331,9 @@
     /* ── Panel nav ── */
     .panel-nav { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 0; margin-bottom: 4px; }
     .nav-btn {
-      background: rgba(255,255,255,.06); border: 1px solid rgba(232,200,122,.18);
-      color: #9a8060; border-radius: 99px; padding: 5px 16px; font-size: .72rem; font-weight: 500;
+      background: linear-gradient(180deg, rgba(120,86,44,.22), rgba(60,42,20,.3));
+      border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255,245,210,.06);
+      color: #b09064; border-radius: 99px; padding: 5px 16px; font-size: .72rem; font-weight: 500;
       cursor: pointer; transition: background .2s, color .2s, border-color .2s, transform .15s;
       display: flex; align-items: center; gap: 5px;
     }
@@ -275,7 +351,7 @@
       header > p { display: none; }
       .legend { gap: 3px; padding: 2px 8px; }
       .legend-item { font-size: .58rem; padding: 2px 6px; }
-      .legend-dot { width: 7px; height: 7px; }
+      .legend-dot { width: 13px; height: 13px; }
       .music-bar { padding: 3px 10px 6px; gap: 6px; }
       .music-btn { font-size: .7rem; padding: 4px 12px; }
       .music-info { font-size: .62rem; max-width: 130px; }
@@ -305,8 +381,9 @@
     .music-btn:active { transform: translateY(0); }
     .music-info {
       font-size: .78rem; color: var(--sand-dark); font-style: italic;
-      background: rgba(255,255,255,.05); padding: 5px 14px; border-radius: 99px;
-      border: 1px solid rgba(232,200,122,.18);
+      background: linear-gradient(180deg, rgba(120,86,44,.2), rgba(60,42,20,.26));
+      padding: 5px 14px; border-radius: 99px;
+      border: 1px solid var(--line);
       max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .music-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--terracotta); flex-shrink: 0; animation: mpulse 1.2s ease-in-out infinite; }
@@ -351,7 +428,7 @@
       40%     { transform: translateY(-5px); }
       60%     { transform: translateY(-3px); }
     }
-    #musicOverlay h2 { font-family: 'Amiri', serif; color: var(--gold); font-size: 1.6rem; text-align: center; position: relative; z-index: 1; }
+    #musicOverlay h2 { font-family: var(--font-display); font-weight: 700; color: var(--gold); font-size: 1.6rem; text-align: center; position: relative; z-index: 1; }
     #musicOverlay p  { color: #9a8060; font-size: .85rem; text-align: center; max-width: 260px; line-height: 1.5; position: relative; z-index: 1; }
     .tap-btn {
       background: rgba(192,98,42,.5); border: 2px solid var(--terracotta); color: var(--gold);
@@ -382,13 +459,11 @@
       display: flex; align-items: center; justify-content: center;
       position: relative; overflow: hidden;
     }
-    /* Diagonal stripe texture on hero — below the icon */
+    /* Moorish zellige lattice (interlocking 8-point khatam stars) — below the icon */
     .panel-hero-ph::before {
-      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-      background: repeating-linear-gradient(
-        -45deg, transparent, transparent 22px,
-        rgba(255,255,255,.022) 22px, rgba(255,255,255,.022) 44px
-      );
+      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .6;
+      background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='44'%20height='44'%3E%3Cg%20fill='none'%20stroke='rgba(232,200,122,0.09)'%20stroke-width='1'%3E%3Crect%20x='9'%20y='9'%20width='26'%20height='26'/%3E%3Crect%20x='9'%20y='9'%20width='26'%20height='26'%20transform='rotate(45%2022%2022)'/%3E%3Ccircle%20cx='22'%20cy='22'%20r='3.4'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: 44px 44px;
     }
     /* Hero icon wrapper — sits above the stripe texture */
     .hero-icon-wrap {
@@ -408,7 +483,7 @@
 
     .panel-body { padding: 16px; flex: 1; }
     .panel-cat { display: inline-block; font-size: .67rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 2px 9px; border-radius: 99px; margin-bottom: 6px; }
-    .panel-title { font-family: 'Amiri', serif; font-size: 1.55rem; color: var(--gold); margin-bottom: 3px; }
+    .panel-title { font-family: var(--font-display); font-weight: 700; font-size: 1.55rem; color: var(--gold); margin-bottom: 3px; letter-spacing: .3px; }
     .panel-sub  { font-size: .78rem; color: #9a8060; margin-bottom: 10px; }
     .panel-desc { font-size: .83rem; line-height: 1.65; color: #c8b090; margin-bottom: 14px; }
     .panel-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 14px; }
@@ -440,9 +515,9 @@
       border: 1.5px solid rgba(232,200,122,.28); flex-shrink: 0;
     }
     .lang-toggle-btn {
-      background: rgba(255,255,255,.05); color: #9a8060; border: none;
+      background: rgba(80,55,28,.28); color: #a08a68; border: none;
       padding: 5px 11px; font-size: .72rem; font-weight: 700; cursor: pointer;
-      font-family: 'Amiri', 'Inter', sans-serif; transition: background .2s, color .2s;
+      font-family: var(--font-display); transition: background .2s, color .2s;
     }
     .lang-toggle-btn + .lang-toggle-btn { border-left: 1px solid rgba(232,200,122,.2); }
     .lang-toggle-btn:hover { background: rgba(192,98,42,.3); color: var(--gold); }
@@ -455,7 +530,7 @@
       background: rgba(192,98,42,.5); border: 2px solid var(--terracotta); color: var(--gold);
       border-radius: 99px; padding: 11px 28px; font-size: 1.05rem; font-weight: 700;
       cursor: pointer; min-width: 130px; display: flex; align-items: center; justify-content: center; gap: 8px;
-      font-family: 'Amiri', 'Inter', sans-serif;
+      font-family: var(--font-display);
       transition: background .2s, transform .2s, box-shadow .2s;
       box-shadow: 0 2px 14px rgba(192,98,42,.3);
     }
@@ -487,42 +562,98 @@
 
 <canvas id="sandCanvas"></canvas>
 
+<!-- Signature sand-wave transition curtain -->
+<div id="sandWave" aria-hidden="true">
+  <div class="sw-body"></div>
+  <div class="sw-grain"></div>
+  <!-- Leading dune ridge (wavy vertical profile) -->
+  <div class="sw-edge lead">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M100,0 H44 Q70,12 50,25 Q28,40 56,52 Q82,64 48,76 Q22,88 60,100 H100 Z"
+            fill="#b8975c"/>
+      <path d="M100,0 H62 Q84,14 64,28 Q44,42 70,54 Q92,66 60,78 Q38,90 72,100 H100 Z"
+            fill="#c0622a" opacity=".55"/>
+    </svg>
+  </div>
+  <!-- Trailing dune ridge (mirrored) -->
+  <div class="sw-edge trail">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M100,0 H44 Q70,12 50,25 Q28,40 56,52 Q82,64 48,76 Q22,88 60,100 H100 Z"
+            fill="#9c3a1e" opacity=".7"/>
+    </svg>
+  </div>
+</div>
+
 <div id="app">
   <header>
-    <!-- Logo: dune-wave motif + text -->
-    <svg class="logo-svg" height="48" viewBox="0 0 240 54" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6,40 Q16,22 28,32 Q40,42 52,24 Q60,12 72,28"
+    <!-- Logo: dune-wave + crescent-and-star motif + wordmark -->
+    <svg class="logo-svg" height="48" viewBox="0 0 250 54" xmlns="http://www.w3.org/2000/svg">
+      <!-- Dune-wave ridges -->
+      <path d="M6,42 Q18,24 30,34 Q42,44 54,26 Q62,14 74,30"
             stroke="#c0622a" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-      <path d="M6,46 Q18,30 32,38 Q44,46 56,30 Q64,20 78,34"
-            stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>
-      <text x="90" y="26" font-family="Amiri,serif" font-size="20" fill="#e8c87a" font-weight="700">MAURITANIA</text>
-      <text x="91" y="41" font-family="Inter,sans-serif" font-size="8.5" fill="#9e8b6e" letter-spacing="3.5">EXPLORER</text>
+      <path d="M6,47 Q18,32 32,40 Q44,47 56,30 Q64,22 78,35"
+            stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".5"/>
+      <!-- Crescent + star rising over the dunes (national motif) -->
+      <path d="M40,8 A6 6 0 1 0 40,20 A4.5 4.5 0 1 1 40,8 Z" fill="#f0c14b"/>
+      <path transform="translate(45.8 8.4) scale(0.3)" fill="#f0c14b"
+            d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.8L12 17.3 5.8 20.2l1.6-6.8L2.2 8.9l6.9-.6z"/>
+      <!-- Wordmark -->
+      <text x="92" y="26" font-family="'Reem Kufi','Amiri',serif" font-size="19" fill="#e8c87a" font-weight="700" letter-spacing=".5">MAURITANIA</text>
+      <text x="93" y="41" font-family="Inter,sans-serif" font-size="8.5" fill="#9e8b6e" letter-spacing="3.5">EXPLORER</text>
       <defs>
         <linearGradient id="lgLine" x1="0" x2="1">
           <stop offset="0%" stop-color="#c0622a"/>
           <stop offset="100%" stop-color="#3a8fa8" stop-opacity=".4"/>
         </linearGradient>
       </defs>
-      <line x1="90" y1="46" x2="240" y2="46" stroke="url(#lgLine)" stroke-width="1"/>
+      <line x1="92" y1="46" x2="248" y2="46" stroke="url(#lgLine)" stroke-width="1"/>
     </svg>
     <p id="tagline">Click on any location to discover it</p>
 
     <!-- Category legend with count badges -->
     <div class="legend" id="legendBar">
       <div class="legend-item active" data-cat="all" onclick="filterCat(this,'all')">
-        <div class="legend-dot" style="background:#888"></div><span class="legend-text">All</span><span class="cat-count" id="cnt-all">11</span>
+        <div class="legend-dot" style="color:#cbb386">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 1 L9.4 6.6 L15 8 L9.4 9.4 L8 15 L6.6 9.4 L1 8 L6.6 6.6 Z" fill="currentColor"/>
+            <circle cx="8" cy="8" r="1.3" fill="#160f06"/>
+          </svg>
+        </div><span class="legend-text">All</span><span class="cat-count" id="cnt-all">11</span>
       </div>
       <div class="legend-item" data-cat="nature" onclick="filterCat(this,'nature')">
-        <div class="legend-dot" style="background:#6a8c4f"></div><span class="legend-text">Nature</span><span class="cat-count" id="cnt-nature">4</span>
+        <div class="legend-dot" style="color:#7aa055">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="11.4" cy="4.6" r="2.1" fill="currentColor" opacity=".85"/>
+            <path d="M1 13 Q4.5 7 8 11 Q11.5 15 15 9 L15 15 L1 15 Z" fill="currentColor"/>
+          </svg>
+        </div><span class="legend-text">Nature</span><span class="cat-count" id="cnt-nature">4</span>
       </div>
       <div class="legend-item" data-cat="historic" onclick="filterCat(this,'historic')">
-        <div class="legend-dot" style="background:#c0622a"></div><span class="legend-text">Historic</span><span class="cat-count" id="cnt-historic">3</span>
+        <div class="legend-dot" style="color:#c0622a">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 15 L3 8 Q3 2.5 8 2.5 Q13 2.5 13 8 L13 15 L10 15 L10 8 Q10 5.5 8 5.5 Q6 5.5 6 8 L6 15 Z" fill="currentColor"/>
+            <path d="M8 0.6 L8 2.6 M7.2 1.6 L8.8 1.6" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+        </div><span class="legend-text">Historic</span><span class="cat-count" id="cnt-historic">3</span>
       </div>
       <div class="legend-item" data-cat="transport" onclick="filterCat(this,'transport')">
-        <div class="legend-dot" style="background:#4a9db5"></div><span class="legend-text">Transport</span><span class="cat-count" id="cnt-transport">1</span>
+        <div class="legend-dot" style="color:#4a9db5">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <line x1="5" y1="1.5" x2="5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="11" y1="1.5" x2="11" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="3.5" y1="4" x2="12.5" y2="4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <line x1="3.5" y1="8" x2="12.5" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <line x1="3.5" y1="12" x2="12.5" y2="12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div><span class="legend-text">Transport</span><span class="cat-count" id="cnt-transport">1</span>
       </div>
       <div class="legend-item" data-cat="city" onclick="filterCat(this,'city')">
-        <div class="legend-dot" style="background:#9e8b6e"></div><span class="legend-text">Cities</span><span class="cat-count" id="cnt-city">3</span>
+        <div class="legend-dot" style="color:#b39a6f">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1.5 15 L1.5 9 L4 9 L4 6.5 L6.5 4 L9 6.5 L9 9 L11 9 L11 7 L14.5 7 L14.5 15 Z" fill="currentColor"/>
+            <path d="M6.5 4 L6.5 2 M5.7 2.8 L7.3 2.8" stroke="currentColor" stroke-width=".9" stroke-linecap="round"/>
+          </svg>
+        </div><span class="legend-text">Cities</span><span class="cat-count" id="cnt-city">3</span>
       </div>
     </div>
 
@@ -582,15 +713,18 @@
 <!-- Intro overlay: logo + language picker -->
 <div id="musicOverlay">
   <div class="overlay-stars"></div>
-  <!-- Logo: dune-wave motif + text -->
-  <svg class="overlay-logo" height="72" viewBox="0 0 240 54" xmlns="http://www.w3.org/2000/svg">
-    <path d="M6,40 Q16,22 28,32 Q40,42 52,24 Q60,12 72,28"
+  <!-- Logo: dune-wave + crescent-and-star motif + wordmark -->
+  <svg class="overlay-logo" height="72" viewBox="0 0 250 54" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6,42 Q18,24 30,34 Q42,44 54,26 Q62,14 74,30"
           stroke="#c0622a" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-    <path d="M6,46 Q18,30 32,38 Q44,46 56,30 Q64,20 78,34"
-          stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>
-    <text x="90" y="26" font-family="Amiri,serif" font-size="20" fill="#e8c87a" font-weight="700">MAURITANIA</text>
-    <text x="91" y="41" font-family="Inter,sans-serif" font-size="8.5" fill="#9e8b6e" letter-spacing="3.5">EXPLORER</text>
-    <line x1="90" y1="46" x2="240" y2="46" stroke="#c0622a" stroke-width="1" opacity=".5"/>
+    <path d="M6,47 Q18,32 32,40 Q44,47 56,30 Q64,22 78,35"
+          stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".5"/>
+    <path d="M40,8 A6 6 0 1 0 40,20 A4.5 4.5 0 1 1 40,8 Z" fill="#f0c14b"/>
+    <path transform="translate(45.8 8.4) scale(0.3)" fill="#f0c14b"
+          d="M12 2l2.9 6.3 6.9.6-5.2 4.5 1.6 6.8L12 17.3 5.8 20.2l1.6-6.8L2.2 8.9l6.9-.6z"/>
+    <text x="92" y="26" font-family="'Reem Kufi','Amiri',serif" font-size="19" fill="#e8c87a" font-weight="700" letter-spacing=".5">MAURITANIA</text>
+    <text x="93" y="41" font-family="Inter,sans-serif" font-size="8.5" fill="#9e8b6e" letter-spacing="3.5">EXPLORER</text>
+    <line x1="92" y1="46" x2="248" y2="46" stroke="#c0622a" stroke-width="1" opacity=".5"/>
   </svg>
   <p>An interactive journey through the Sahara · رحلة تفاعلية عبر الصحراء</p>
   <div class="lang-choice">
@@ -664,45 +798,57 @@ const cubicOut = t => 1 - Math.pow(1 - t, 3);
 // Each icon is an <svg viewBox="0 0 20 20"> string; CSS sizes it inside .mb-icon
 const ICONS = {
 
-  // Eye of the Sahara — concentric geological rings
+  // Eye of the Sahara — concentric geological rings (as seen from orbit)
   richat: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="10" cy="10" r="2.4" fill="#e8c87a"/>
-    <circle cx="10" cy="10" r="1" fill="#fff" opacity=".5"/>
-    <circle cx="10" cy="10" r="5.5" stroke="#e8c87a" stroke-width="1.2" fill="none" opacity=".6"/>
-    <circle cx="10" cy="10" r="8.8" stroke="#e8c87a" stroke-width=".7" fill="none" opacity=".28"/>
-    <path d="M10 1.2 L10 3.5 M10 16.5 L10 18.8 M1.2 10 L3.5 10 M16.5 10 L18.8 10" stroke="#e8c87a" stroke-width=".5" opacity=".2"/>
+    <circle cx="10" cy="10" r="8.9" stroke="#b8924d" stroke-width=".8" opacity=".32"/>
+    <circle cx="10" cy="10" r="6.8" stroke="#cda257" stroke-width="1" opacity=".5"/>
+    <circle cx="10" cy="10" r="4.7" stroke="#e0b865" stroke-width="1.15" opacity=".72"/>
+    <circle cx="10" cy="10" r="2.7" stroke="#e8c87a" stroke-width="1.2" opacity=".9"/>
+    <circle cx="10" cy="10" r="1.15" fill="#f3e0a8"/>
+    <circle cx="9.5" cy="9.4" r=".4" fill="#fff" opacity=".7"/>
   </svg>`,
 
-  // Flamingo silhouette — Banc d'Arguin migratory birds
+  // Flamingo — Banc d'Arguin migratory birds
   arguin: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M10 4 C12 6 12.5 8.5 11.5 11 L13 15 L10 17.5 C9 15.5 8 13 9 11 C7.5 8.5 8 6 10 4Z" fill="#ff7fa8" opacity=".9"/>
-    <path d="M7 17 Q8.5 18 10 17.5" stroke="#ff7fa8" stroke-width="1.3" stroke-linecap="round" fill="none"/>
-    <circle cx="10.5" cy="4" r="1.3" fill="#e05070"/>
-    <path d="M8 10 Q9.5 9.2 11 10.2" stroke="#ffaac8" stroke-width=".8" fill="none" stroke-linecap="round" opacity=".6"/>
-    <path d="M13 15 L16 14.5 L15.5 15.5 L13 15.5Z" fill="#ff7fa8" opacity=".5"/>
+    <line x1="9.4" y1="13.1" x2="8.6" y2="18.3" stroke="#e8789a" stroke-width=".9" stroke-linecap="round"/>
+    <line x1="10.9" y1="13.1" x2="11.5" y2="18.3" stroke="#e8789a" stroke-width=".9" stroke-linecap="round"/>
+    <ellipse cx="10.4" cy="11.2" rx="3.4" ry="2.6" fill="#ff8fb0"/>
+    <path d="M13.3 10.3 L15.6 9.3 L13.7 12.1 Z" fill="#ff8fb0" opacity=".72"/>
+    <path d="M8.7 10 C6.7 8.1 8.3 4.3 7.4 2.6" stroke="#ff8fb0" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+    <circle cx="7.2" cy="2.7" r="1.3" fill="#ff8fb0"/>
+    <path d="M6.1 2.6 L4.2 3.3 L6.2 3.9 Z" fill="#2a1810"/>
+    <circle cx="7.5" cy="2.4" r=".33" fill="#2a1810"/>
+    <path d="M9 13.6 Q10.4 14.4 11.6 13.6" stroke="#ffb3c9" stroke-width=".6" fill="none" opacity=".5"/>
   </svg>`,
 
-  // Mosque minaret — Chinguetti (7th holy city)
+  // Old mosque — Chinguetti (dome, crescent finial & stone minaret)
   mosque: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="6" y="12" width="8" height="6.5" rx=".5" fill="#c0622a" opacity=".88"/>
-    <path d="M7 12 Q10 3.5 13 12Z" fill="#c0622a" opacity=".92"/>
-    <line x1="10" y1="3.5" x2="10" y2="1.8" stroke="#e8c87a" stroke-width="1.1" stroke-linecap="round"/>
-    <circle cx="10" cy="1.4" r=".7" fill="#e8c87a"/>
-    <rect x="8.5" y="14" width="3" height="4" rx="1" fill="rgba(0,0,0,.28)"/>
-    <rect x="6.5" y="14" width="1.4" height="2.2" rx=".4" fill="rgba(0,0,0,.18)"/>
-    <rect x="12.1" y="14" width="1.4" height="2.2" rx=".4" fill="rgba(0,0,0,.18)"/>
-    <path d="M7 12 Q10 10 13 12" stroke="rgba(232,200,122,.2)" stroke-width=".5" fill="none"/>
+    <rect x="2.5" y="10" width="10.5" height="8" rx=".5" fill="#c0622a" opacity=".9"/>
+    <path d="M3.8 10 Q3.8 5.2 7.75 5.2 Q11.7 5.2 11.7 10 Z" fill="#c0622a"/>
+    <path d="M4.9 10 Q4.9 6.5 7.75 6.4" stroke="rgba(232,200,122,.3)" stroke-width=".5" fill="none"/>
+    <line x1="7.75" y1="5.2" x2="7.75" y2="3.6" stroke="#e8c87a" stroke-width=".8" stroke-linecap="round"/>
+    <path d="M6.95 3 A1 1 0 1 0 8.55 3 A.7 .7 0 1 1 6.95 3Z" fill="#e8c87a"/>
+    <rect x="13.6" y="6.2" width="3.2" height="11.8" rx=".4" fill="#b35728"/>
+    <path d="M13.6 6.2 L15.2 4.1 L16.8 6.2 Z" fill="#c0622a"/>
+    <circle cx="15.2" cy="3.7" r=".55" fill="#e8c87a"/>
+    <rect x="14.6" y="8" width="1.2" height="1.5" rx=".25" fill="rgba(0,0,0,.32)"/>
+    <rect x="14.6" y="10.5" width="1.2" height="1.5" rx=".25" fill="rgba(0,0,0,.32)"/>
+    <path d="M5.9 18 L5.9 13.4 Q7.75 11.4 9.6 13.4 L9.6 18 Z" fill="#311409"/>
+    <path d="M3.4 14.6 Q4.2 13.6 5 14.6 L5 16.4 L3.4 16.4 Z" fill="rgba(0,0,0,.25)"/>
+    <path d="M10.5 14.6 Q11.3 13.6 12.1 14.6 L12.1 16.4 L10.5 16.4 Z" fill="rgba(0,0,0,.25)"/>
   </svg>`,
 
-  // Manuscript scroll — Oualata ancient library
-  scroll: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="5.5" y="4" width="9" height="13" rx="1.5" stroke="#e8c87a" stroke-width="1.1" fill="rgba(26,14,5,.5)"/>
-    <circle cx="5.5" cy="5.5" r="1.6" fill="#c0622a"/>
-    <circle cx="5.5" cy="15.5" r="1.6" fill="#c0622a"/>
-    <line x1="8" y1="7.5" x2="12.5" y2="7.5" stroke="#e8c87a" stroke-width=".85" opacity=".7"/>
-    <line x1="8" y1="10"  x2="12.5" y2="10"  stroke="#e8c87a" stroke-width=".85" opacity=".7"/>
-    <line x1="8" y1="12.5" x2="11"  y2="12.5" stroke="#e8c87a" stroke-width=".85" opacity=".5"/>
-    <path d="M13 5.5 Q14 5.5 14 6.5 L14 15.5 Q14 16.5 13 16.5" stroke="#e8c87a" stroke-width=".5" fill="none" opacity=".3"/>
+  // Oualata painted doorway — red ochre wall with white geometric motifs
+  doorway: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3.5 18.5 L3.5 7 Q3.5 2.8 10 2.8 Q16.5 2.8 16.5 7 L16.5 18.5 Z" fill="#b1452a"/>
+    <path d="M5.2 18.5 L5.2 7.3 Q5.2 4.5 10 4.5 Q14.8 4.5 14.8 7.3 L14.8 18.5" stroke="#f3e3c4" stroke-width=".75" fill="none" opacity=".9"/>
+    <path d="M7.2 18.5 L7.2 9.2 Q7.2 6.6 10 6.6 Q12.8 6.6 12.8 9.2 L12.8 18.5 Z" fill="#311409"/>
+    <path d="M7.9 5.6 L10 4 L12.1 5.6" stroke="#f3e3c4" stroke-width=".6" fill="none" opacity=".85"/>
+    <circle cx="5" cy="9" r=".5" fill="#f3e3c4" opacity=".85"/>
+    <circle cx="15" cy="9" r=".5" fill="#f3e3c4" opacity=".85"/>
+    <circle cx="5" cy="12.5" r=".5" fill="#f3e3c4" opacity=".7"/>
+    <circle cx="15" cy="12.5" r=".5" fill="#f3e3c4" opacity=".7"/>
+    <path d="M9 9.4 L10 8.5 L11 9.4 L10 10.3 Z" fill="#f3e3c4" opacity=".5"/>
   </svg>`,
 
   // Neolithic ruins — Tichit ancient city
@@ -716,57 +862,85 @@ const ICONS = {
     <path d="M4 11 Q5 9.5 6 11" stroke="#e8c87a" stroke-width=".5" fill="none" opacity=".3"/>
   </svg>`,
 
-  // Locomotive — Iron Ore Train
+  // Iron Ore Train — locomotive hauling an ore hopper
   train: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="1"  y="7"  width="13" height="7"  rx="2"   fill="#4a9db5" opacity=".92"/>
-    <rect x="2"  y="5"  width="6"  height="3.8" rx="1"  fill="#3a8fa8" opacity=".9"/>
-    <circle cx="4"  cy="15.8" r="2"  fill="#7ec8e3" stroke="#0e1a22" stroke-width=".4"/>
-    <circle cx="11" cy="15.8" r="2"  fill="#7ec8e3" stroke="#0e1a22" stroke-width=".4"/>
-    <rect x="14" y="9"  width="5"  height="4"   rx="1"  fill="#4a9db5" opacity=".8"/>
-    <rect x="2.8" y="5.8" width="2.4" height="1.8" rx=".4" fill="rgba(255,255,255,.3)"/>
-    <rect x="6"   y="5.8" width="1.6" height="1.8" rx=".4" fill="rgba(255,255,255,.25)"/>
-    <path d="M14 11 L18 10.5 L18 13 L14 13Z" fill="#3a8fa8" opacity=".4"/>
-    <line x1="1"  y1="14" x2="14" y2="14" stroke="rgba(255,255,255,.07)" stroke-width=".5"/>
+    <line x1="1" y1="16.8" x2="19" y2="16.8" stroke="#5a5048" stroke-width=".8" stroke-linecap="round"/>
+    <rect x="1.5" y="8.2" width="7.2" height="5.6" rx="1" fill="#4a9db5"/>
+    <rect x="2.2" y="5.6" width="4" height="3" rx=".6" fill="#3a8fa8"/>
+    <rect x="2.9" y="6.3" width="2.5" height="1.7" rx=".3" fill="#bfe6f0"/>
+    <rect x="2.5" y="4" width="1.4" height="1.9" rx=".3" fill="#3a8fa8"/>
+    <rect x="1.5" y="11.1" width="7.2" height="1.1" fill="#e8c87a"/>
+    <path d="M10 9 L18.6 9 L17.6 13.8 L11 13.8 Z" fill="#2c2824"/>
+    <path d="M10.5 9 Q12.4 6.9 14.4 7.6 Q16.4 6.9 18.1 9 Z" fill="#a85b2b"/>
+    <circle cx="11.6" cy="8.4" r=".5" fill="#854720"/>
+    <circle cx="14" cy="7.9" r=".5" fill="#9a5326"/>
+    <circle cx="16.3" cy="8.4" r=".5" fill="#854720"/>
+    <circle cx="3.2" cy="15.2" r="1.4" fill="#0e0a05" stroke="#5a5048" stroke-width=".5"/>
+    <circle cx="7"   cy="15.2" r="1.4" fill="#0e0a05" stroke="#5a5048" stroke-width=".5"/>
+    <circle cx="12.4" cy="15.4" r="1.3" fill="#0e0a05" stroke="#5a5048" stroke-width=".5"/>
+    <circle cx="16"   cy="15.4" r="1.3" fill="#0e0a05" stroke="#5a5048" stroke-width=".5"/>
   </svg>`,
 
   // City skyline with minaret — Mauritanian cities
   city: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M2 17 L2 11 L4 11 L4 8.5 L6 8.5 L6 6 L8 6 L8 4.5 L10 4.5 L10 6 L12 6 L12 11 L14 11 L14 9 L16 9 L16 11 L18 11 L18 17Z"
           fill="#9e8b6e" opacity=".85"/>
-    <line x1="8" y1="4.5" x2="8" y2="2.5" stroke="#e8c87a" stroke-width=".9" stroke-linecap="round"/>
-    <circle cx="8" cy="2.5" r=".85" fill="#e8c87a"/>
-    <rect x="6.5" y="9" width="2.5" height="3.5" rx=".4" fill="rgba(0,0,0,.28)"/>
+    <line x1="8" y1="4.5" x2="8" y2="2.8" stroke="#e8c87a" stroke-width=".9" stroke-linecap="round"/>
+    <path d="M7.2 2 A1 1 0 1 0 8.8 2 A.7 .7 0 1 1 7.2 2Z" fill="#e8c87a"/>
+    <path d="M6.5 12.5 L6.5 10.2 Q7.75 8.8 9 10.2 L9 12.5Z" fill="rgba(0,0,0,.3)"/>
     <rect x="14.5" y="11.5" width="2" height="2.5" rx=".3" fill="rgba(232,200,122,.15)"/>
     <rect x="10.5" y="7.5" width="1.5" height="2"   rx=".3" fill="rgba(232,200,122,.15)"/>
   </svg>`,
 
-  // Oasis / palm canyon — Terjit
+  // Date palm — Terjit oasis (curved trunk, fronds & date clusters)
   oasis: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <line x1="10" y1="18.5" x2="10" y2="8" stroke="#6a8c4f" stroke-width="1.4" stroke-linecap="round"/>
-    <path d="M10 8 Q7 3.8 4 5 Q6.5 9.2 10 8Z"       fill="#6a8c4f" opacity=".95"/>
-    <path d="M10 8 Q13 3.8 16 5 Q13.5 9.2 10 8Z"    fill="#6a8c4f" opacity=".95"/>
-    <path d="M10 11 Q7.5 7.2 5 8.2 Q7.5 12.2 10 11Z" fill="#6a8c4f" opacity=".65"/>
-    <path d="M10 11 Q12.5 7.2 15 8.2 Q12.5 12.2 10 11Z" fill="#6a8c4f" opacity=".55"/>
-    <ellipse cx="10" cy="19" rx="5.2" ry="1.2" fill="#1e3d5e" opacity=".55"/>
-    <ellipse cx="10" cy="19" rx="2.8" ry=".65" fill="#2a5880" opacity=".6"/>
+    <ellipse cx="10" cy="18.5" rx="5.2" ry=".95" fill="#2a5880" opacity=".5"/>
+    <path d="M9.2 18 Q8.7 12 10 7.6" stroke="#8a5a2a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <path d="M9.05 15 L10 15.2 M9 13 L9.95 13.1 M9.2 11 L10.1 11" stroke="#6b4420" stroke-width=".4" stroke-linecap="round"/>
+    <path d="M10 7.6 Q5.6 6.2 2.6 8" stroke="#5f8a3f" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path d="M10 7.6 Q14.4 6.2 17.4 8" stroke="#5f8a3f" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path d="M10 7.6 Q6.8 3.9 4.2 3.8" stroke="#6a8c4f" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path d="M10 7.6 Q13.2 3.9 15.8 3.8" stroke="#6a8c4f" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path d="M10 7.6 Q9.4 4 8.7 2.4" stroke="#7aa055" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <path d="M10 7.6 Q10.7 4 11.4 2.6" stroke="#7aa055" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+    <circle cx="10" cy="7.5" r="1" fill="#5f8a3f"/>
+    <circle cx="8.5" cy="8.7" r=".6" fill="#c0622a"/>
+    <circle cx="9.1" cy="9.3" r=".5" fill="#9a5326"/>
+    <circle cx="11.5" cy="8.7" r=".6" fill="#c0622a"/>
+    <circle cx="10.9" cy="9.3" r=".5" fill="#9a5326"/>
   </svg>`,
 
-  // Granite monolith — Ben Amera
+  // Granite monolith — Ben Amera (rounded inselberg dome rising from the plain)
   monolith: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M5.5 17 L8.5 5 L11.5 5 L14.5 17Z" fill="#9e8b6e" opacity=".88"/>
-    <path d="M8.5 5 L10 1.8 L11.5 5Z"           fill="#c0622a" opacity=".92"/>
-    <ellipse cx="10" cy="17.6" rx="5.5" ry="1.1" fill="#5a4d38" opacity=".45"/>
-    <path d="M10 5 L10.5 9 L10 13 L9.5 9Z"       fill="rgba(0,0,0,.14)"/>
-    <path d="M8.5 5 Q7.5 8 7 12 L7.5 15"         stroke="#7a6d54" stroke-width=".45" fill="none" opacity=".35"/>
+    <ellipse cx="10" cy="17.2" rx="7.6" ry="1.3" fill="#5a4d38" opacity=".45"/>
+    <path d="M2.6 17 Q2.6 5.6 10 4.6 Q17.4 5.6 17.4 17 Z" fill="#9e8b6e"/>
+    <path d="M10 4.6 Q17.4 5.6 17.4 17 L13 17 Q13.4 8.6 10 4.6 Z" fill="rgba(0,0,0,.17)"/>
+    <path d="M4.8 12 Q5.4 7.4 10 6.3 Q11.8 6.2 12.9 7.3" stroke="rgba(232,200,122,.28)" stroke-width=".6" fill="none"/>
+    <path d="M7.6 6.6 Q6.6 11 7.2 16.6" stroke="#6b5d42" stroke-width=".4" fill="none" opacity=".5"/>
+    <path d="M11.6 7 Q12.6 11 12 16.6" stroke="#6b5d42" stroke-width=".4" fill="none" opacity=".4"/>
+    <path d="M3.4 14 Q10 13.4 16.6 14" stroke="#6b5d42" stroke-width=".4" fill="none" opacity=".35"/>
   </svg>`,
 
-  // Anchor — Nouadhibou port city
-  port: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="10" cy="5.5" r="2"   stroke="#4a9db5" stroke-width="1.2" fill="none"/>
-    <circle cx="10" cy="5.5" r=".85" fill="#7ec8e3"/>
-    <line x1="10" y1="7.5" x2="10" y2="17"   stroke="#4a9db5" stroke-width="1.2" stroke-linecap="round"/>
-    <line x1="5"  y1="10.5" x2="15" y2="10.5" stroke="#4a9db5" stroke-width="1.2" stroke-linecap="round"/>
-    <path d="M5 17 Q7.5 14 10 17 Q12.5 14 15 17" stroke="#4a9db5" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  // Ksar gateway — Atar, gateway to the Adrar (fortified desert town gate)
+  gate: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2.4 18 L2.4 6 L5.8 6 L5.8 18 Z" fill="#c08a4a"/>
+    <path d="M14.2 18 L14.2 6 L17.6 6 L17.6 18 Z" fill="#c08a4a"/>
+    <path d="M2.4 6 L2.4 4.6 L3.25 4.6 L3.25 5.4 L4.1 5.4 L4.1 4.6 L4.95 4.6 L4.95 5.4 L5.8 5.4 L5.8 6 Z" fill="#cf9a55"/>
+    <path d="M14.2 6 L14.2 5.4 L15.05 5.4 L15.05 4.6 L15.9 4.6 L15.9 5.4 L16.75 5.4 L16.75 4.6 L17.6 4.6 L17.6 6 Z" fill="#cf9a55"/>
+    <path d="M5.8 18 L5.8 9 Q10 4.8 14.2 9 L14.2 18 Z" fill="#a9763c"/>
+    <path d="M7.8 18 L7.8 11.3 Q10 8.6 12.2 11.3 L12.2 18 Z" fill="#2a1810"/>
+    <path d="M9 8.2 L10 7.3 L11 8.2" stroke="#e8c87a" stroke-width=".5" fill="none" opacity=".5"/>
+  </svg>`,
+
+  // Lateen-sail pirogue — Nouadhibou Atlantic port & fishing coast
+  pirogue: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <line x1="10" y1="2" x2="10" y2="12.5" stroke="#7a5a36" stroke-width=".8" stroke-linecap="round"/>
+    <path d="M9.4 2.4 L9.4 11.6 L4 11.6 Z" fill="#e8c87a" opacity=".92"/>
+    <path d="M10.6 3.6 L10.6 11.6 L15.2 11.6 Z" fill="#cf9a55" opacity=".75"/>
+    <path d="M3.2 12.4 L16.8 12.4 L14.8 16.2 L5.2 16.2 Z" fill="#4a9db5"/>
+    <line x1="4.4" y1="13.6" x2="15.6" y2="13.6" stroke="#7ec8e3" stroke-width=".6" opacity=".5"/>
+    <path d="M2.5 17.6 Q4.3 16.7 6 17.6 Q7.8 18.5 9.5 17.6 Q11.3 16.7 13 17.6 Q14.8 18.5 16.5 17.6 L17.5 17.6"
+          stroke="#4a9db5" stroke-width=".8" fill="none" opacity=".55" stroke-linecap="round"/>
   </svg>`,
 };
 
@@ -775,13 +949,13 @@ const PLACE_ICON = {
   richat:     'richat',
   arguin:     'arguin',
   chinguetti: 'mosque',
-  oualata:    'scroll',
-  atar:       'city',
+  oualata:    'doorway',
+  atar:       'gate',
   terjit:     'oasis',
   tichit:     'ruins',
   benamera:   'monolith',
   nouakchott: 'city',
-  nouadhibou: 'port',
+  nouadhibou: 'pirogue',
   train:      'train',
 };
 
@@ -887,10 +1061,10 @@ const PLACES = {
 };
 
 const CAT = {
-  nature:    { bg:'rgba(80,130,60,.2)',   text:'#a0e080', border:'#6a8c4f' },
-  historic:  { bg:'rgba(180,80,30,.2)',   text:'#f0a060', border:'#c0622a' },
-  transport: { bg:'rgba(50,120,160,.2)',  text:'#80c8e8', border:'#4a9db5' },
-  city:      { bg:'rgba(140,120,80,.2)',  text:'#d0b880', border:'#9e8b6e' },
+  nature:    { bg:'rgba(122,160,85,.2)',  text:'#aede86', border:'#7aa055' },
+  historic:  { bg:'rgba(192,98,42,.2)',   text:'#f0a060', border:'#c0622a' },
+  transport: { bg:'rgba(74,157,181,.2)',  text:'#80c8e8', border:'#4a9db5' },
+  city:      { bg:'rgba(179,154,111,.2)', text:'#d8bd8e', border:'#b39a6f' },
 };
 
 // ── UI translation dictionary ─────────────────────────────────────────────────
@@ -1302,7 +1476,53 @@ function pField(p, key) {
   return (LANG === 'ar' && p[key + '_ar']) ? p[key + '_ar'] : p[key];
 }
 
+// ── Sand-wave transition engine ──────────────────────────────────────────────
+// A dune curtain washes across the screen; the supplied midFn runs at the crest
+// (full coverage) so panel content swaps unseen, then the curtain recedes.
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sandWaveEl = document.getElementById('sandWave');
+let sandWaveBusy = false;
+
+function burstAlongCrest() {
+  const w = window.innerWidth, h = window.innerHeight;
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => sandBurst(w * (0.18 + Math.random() * 0.64), h * (0.2 + Math.random() * 0.6)), 380 + i * 45);
+  }
+}
+
+function sandWaveReveal(midFn, doneFn) {
+  if (prefersReducedMotion || !sandWaveEl) {
+    if (midFn) midFn();
+    if (doneFn) doneFn();
+    return;
+  }
+  sandWaveBusy = true;
+  sandWaveEl.classList.remove('run', 'recede');
+  void sandWaveEl.offsetWidth; // restart animation
+  sandWaveEl.classList.add('run');
+  burstAlongCrest();
+  const midTimer = setTimeout(() => { if (midFn) midFn(); }, 470);
+  const onEnd = () => {
+    sandWaveEl.removeEventListener('animationend', onEnd);
+    clearTimeout(midTimer);
+    sandWaveEl.classList.remove('run');
+    sandWaveBusy = false;
+    if (doneFn) doneFn();
+  };
+  sandWaveEl.addEventListener('animationend', onEnd);
+}
+
 function openPlace(id) {
+  if (!PLACES[id]) return;
+  const freshOpen = !document.getElementById('infoPanel').classList.contains('open');
+  if (freshOpen && !prefersReducedMotion && !sandWaveBusy) {
+    sandWaveReveal(() => renderPlace(id));
+  } else {
+    renderPlace(id);
+  }
+}
+
+function renderPlace(id) {
   const p = PLACES[id];
   if (!p) return;
   currentOpenId = id;
@@ -1345,11 +1565,16 @@ function openPlace(id) {
 }
 
 function closePanel() {
-  document.getElementById('infoPanel').classList.remove('open');
-  document.getElementById('backdrop').classList.remove('open');
-  currentOpenId = null;
-  deselectMarker();
-  fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: 1200 });
+  if (!document.getElementById('infoPanel').classList.contains('open')) return;
+  const doClose = () => {
+    document.getElementById('infoPanel').classList.remove('open');
+    document.getElementById('backdrop').classList.remove('open');
+    currentOpenId = null;
+    deselectMarker();
+    fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: 1200 });
+  };
+  if (prefersReducedMotion || sandWaveBusy) { doClose(); return; }
+  sandWaveReveal(doClose);
 }
 
 // ── Language switching engine ─────────────────────────────────────────────────
@@ -1557,6 +1782,8 @@ function beginExperience(lang) {
   applyLanguage(lang);
   overlay.style.display = 'none';
   startMusic();   // still inside the tap gesture — required for iOS audio
+  // Sand-wave bridge from the intro overlay into the live map.
+  sandWaveReveal(null);
   // Fly in from Africa overview → Mauritania resting view.
   map.flyTo({
     center:    CONFIG.center,
