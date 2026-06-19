@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mauritania Explorer</title>
   <meta name="description" content="An interactive explorer of Mauritania's most remarkable places — from the Eye of the Sahara to the Iron Ore Train."/>
+  <!-- Favicons (desert dune-wave mark) -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="icon" type="image/svg+xml" sizes="any" href="favicon.svg"/>
+  <link rel="apple-touch-icon" href="favicon.svg"/>
+  <link rel="mask-icon" href="favicon.svg" color="#c0622a"/>
+  <meta name="theme-color" content="#1a1208"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet"/>
   <style>
@@ -313,7 +320,7 @@
       position: fixed; inset: 0; z-index: 60;
       background: rgba(8,4,1,.96);
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-      cursor: pointer; overflow: hidden;
+      overflow: hidden;
     }
     /* Dune silhouette at bottom */
     .overlay-dunes {
@@ -426,6 +433,54 @@
     /* info-panel slides in — composited on its own layer */
     .info-panel { will-change: right; }
     @media (max-width: 640px) { .info-panel { will-change: bottom; } }
+
+    /* ── Language toggle (in the music bar) ── */
+    .lang-toggle {
+      display: flex; gap: 0; border-radius: 99px; overflow: hidden;
+      border: 1.5px solid rgba(232,200,122,.28); flex-shrink: 0;
+    }
+    .lang-toggle-btn {
+      background: rgba(255,255,255,.05); color: #9a8060; border: none;
+      padding: 5px 11px; font-size: .72rem; font-weight: 700; cursor: pointer;
+      font-family: 'Amiri', 'Inter', sans-serif; transition: background .2s, color .2s;
+    }
+    .lang-toggle-btn + .lang-toggle-btn { border-left: 1px solid rgba(232,200,122,.2); }
+    .lang-toggle-btn:hover { background: rgba(192,98,42,.3); color: var(--gold); }
+    .lang-toggle-btn.active { background: rgba(192,98,42,.55); color: var(--gold); }
+
+    /* ── Intro overlay: logo + language choice ── */
+    .overlay-logo { position: relative; z-index: 1; margin-bottom: 4px; filter: drop-shadow(0 4px 18px rgba(192,98,42,.45)); }
+    .lang-choice { display: flex; gap: 12px; position: relative; z-index: 1; margin-top: 6px; }
+    .lang-choice-btn {
+      background: rgba(192,98,42,.5); border: 2px solid var(--terracotta); color: var(--gold);
+      border-radius: 99px; padding: 11px 28px; font-size: 1.05rem; font-weight: 700;
+      cursor: pointer; min-width: 130px; display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'Amiri', 'Inter', sans-serif;
+      transition: background .2s, transform .2s, box-shadow .2s;
+      box-shadow: 0 2px 14px rgba(192,98,42,.3);
+    }
+    .lang-choice-btn:hover { background: rgba(192,98,42,.78); transform: translateY(-2px); box-shadow: 0 6px 22px rgba(192,98,42,.5); }
+    .lang-choice-btn .lang-sub { font-size: .7rem; font-weight: 500; opacity: .8; }
+
+    /* ── RTL mirroring (Arabic mode) ── */
+    body.rtl, body.rtl .panel-title, body.rtl .panel-desc { font-family: 'Amiri', 'Inter', serif; }
+    /* Desktop info panel slides in from the left in RTL */
+    body.rtl .info-panel { right: auto; left: -420px; border-left: none; border-right: 1px solid rgba(232,200,122,.2); transition: left .35s cubic-bezier(.4,0,.2,1); will-change: left; }
+    body.rtl .info-panel.open { left: 0; }
+    @media (max-width: 640px) {
+      /* mobile stays a bottom sheet regardless of direction */
+      body.rtl .info-panel { left: 0; right: auto; bottom: -100%; top: auto; transition: bottom .35s cubic-bezier(.4,0,.2,1); will-change: bottom; }
+      body.rtl .info-panel.open { bottom: 0; }
+    }
+    body.rtl .panel-close { right: auto; left: 10px; }
+    /* Link buttons stay identical (LTR, English labels, icon-left) in Arabic mode */
+    body.rtl .link-btn { direction: ltr; justify-content: flex-start; }
+    body.rtl .link-btn:hover { transform: translateX(-4px); }
+    /* Home link mirrors to the right side (override inline left:10px) */
+    body.rtl #homeLink { left: auto !important; right: 10px; }
+    /* Logos are Latin wordmarks — keep them LTR so the SVG text isn't clipped */
+    body.rtl .logo-svg, body.rtl .overlay-logo { direction: ltr; }
+    .logo-svg text, .overlay-logo text { direction: ltr; unicode-bidi: bidi-override; }
   </style>
 </head>
 <body>
@@ -450,24 +505,24 @@
       </defs>
       <line x1="90" y1="46" x2="240" y2="46" stroke="url(#lgLine)" stroke-width="1"/>
     </svg>
-    <p>Click on any location to discover it</p>
+    <p id="tagline">Click on any location to discover it</p>
 
     <!-- Category legend with count badges -->
     <div class="legend" id="legendBar">
       <div class="legend-item active" data-cat="all" onclick="filterCat(this,'all')">
-        <div class="legend-dot" style="background:#888"></div>All<span class="cat-count" id="cnt-all">11</span>
+        <div class="legend-dot" style="background:#888"></div><span class="legend-text">All</span><span class="cat-count" id="cnt-all">11</span>
       </div>
       <div class="legend-item" data-cat="nature" onclick="filterCat(this,'nature')">
-        <div class="legend-dot" style="background:#6a8c4f"></div>Nature<span class="cat-count" id="cnt-nature">4</span>
+        <div class="legend-dot" style="background:#6a8c4f"></div><span class="legend-text">Nature</span><span class="cat-count" id="cnt-nature">4</span>
       </div>
       <div class="legend-item" data-cat="historic" onclick="filterCat(this,'historic')">
-        <div class="legend-dot" style="background:#c0622a"></div>Historic<span class="cat-count" id="cnt-historic">3</span>
+        <div class="legend-dot" style="background:#c0622a"></div><span class="legend-text">Historic</span><span class="cat-count" id="cnt-historic">3</span>
       </div>
       <div class="legend-item" data-cat="transport" onclick="filterCat(this,'transport')">
-        <div class="legend-dot" style="background:#4a9db5"></div>Transport<span class="cat-count" id="cnt-transport">1</span>
+        <div class="legend-dot" style="background:#4a9db5"></div><span class="legend-text">Transport</span><span class="cat-count" id="cnt-transport">1</span>
       </div>
       <div class="legend-item" data-cat="city" onclick="filterCat(this,'city')">
-        <div class="legend-dot" style="background:#9e8b6e"></div>Cities<span class="cat-count" id="cnt-city">3</span>
+        <div class="legend-dot" style="background:#9e8b6e"></div><span class="legend-text">Cities</span><span class="cat-count" id="cnt-city">3</span>
       </div>
     </div>
 
@@ -485,9 +540,13 @@
       <svg id="musicIcon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
         <path d="M8 5v14l11-7z"/>
       </svg>
-      Play Music
+      <span id="musicBtnText">Play Music</span>
     </button>
     <span class="music-info" id="musicLabel">—</span>
+    <div class="lang-toggle">
+      <button class="lang-toggle-btn active" data-lang="en" onclick="setLanguage('en')">EN</button>
+      <button class="lang-toggle-btn" data-lang="ar" onclick="setLanguage('ar')">ع</button>
+    </div>
   </div>
 
   <div id="ytPlayer"></div>
@@ -520,15 +579,23 @@
   <div class="inset-label">MAURITANIA</div>
 </div>
 
-<!-- iOS tap-to-start overlay -->
-<div id="musicOverlay" onclick="handleOverlayTap()">
+<!-- Intro overlay: logo + language picker -->
+<div id="musicOverlay">
   <div class="overlay-stars"></div>
-  <div class="overlay-camel">🐪</div>
-  <h2>Mauritania Explorer</h2>
-  <p>An interactive journey through the Sahara and beyond</p>
-  <div class="tap-btn">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-    Tap to Begin
+  <!-- Logo: dune-wave motif + text -->
+  <svg class="overlay-logo" height="72" viewBox="0 0 240 54" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6,40 Q16,22 28,32 Q40,42 52,24 Q60,12 72,28"
+          stroke="#c0622a" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+    <path d="M6,46 Q18,30 32,38 Q44,46 56,30 Q64,20 78,34"
+          stroke="#e8c87a" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>
+    <text x="90" y="26" font-family="Amiri,serif" font-size="20" fill="#e8c87a" font-weight="700">MAURITANIA</text>
+    <text x="91" y="41" font-family="Inter,sans-serif" font-size="8.5" fill="#9e8b6e" letter-spacing="3.5">EXPLORER</text>
+    <line x1="90" y1="46" x2="240" y2="46" stroke="#c0622a" stroke-width="1" opacity=".5"/>
+  </svg>
+  <p>An interactive journey through the Sahara · رحلة تفاعلية عبر الصحراء</p>
+  <div class="lang-choice">
+    <button class="lang-choice-btn" onclick="beginExperience('en')">English</button>
+    <button class="lang-choice-btn" onclick="beginExperience('ar')">العربية</button>
   </div>
   <!-- Dune silhouette -->
   <svg class="overlay-dunes" viewBox="0 0 400 90" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
@@ -552,13 +619,13 @@
     </button>
   </div>
   <div class="panel-nav">
-    <button class="nav-btn" onclick="navPlace(-1)">
+    <button class="nav-btn nav-prev" onclick="navPlace(-1)">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><polyline points="15,18 9,12 15,6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Prev
+      <span id="navPrevText">Prev</span>
     </button>
     <span class="nav-counter" id="navCounter"></span>
-    <button class="nav-btn" onclick="navPlace(1)">
-      Next
+    <button class="nav-btn nav-next" onclick="navPlace(1)">
+      <span id="navNextText">Next</span>
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><polyline points="9,18 15,12 9,6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
   </div>
@@ -573,7 +640,7 @@
 </div>
 
 
-<a href="https://abbad.app" style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(192,98,42,.5);border:1px solid rgba(192,98,42,.6);color:#e8c87a;padding:3px 10px;border-radius:99px;font-size:.62rem;font-weight:600;text-decoration:none;">← home</a>
+<a id="homeLink" href="https://abbad.app" style="position:fixed;top:10px;left:10px;z-index:100;background:rgba(192,98,42,.5);border:1px solid rgba(192,98,42,.6);color:#e8c87a;padding:3px 10px;border-radius:99px;font-size:.62rem;font-weight:600;text-decoration:none;">← home</a>
 
 <script>
 // ── CONFIG (from Mapbox reference pattern) ────────────────────────────────────
@@ -731,58 +798,91 @@ const LINK_ICONS = {
 const PLACES = {
   train: {
     name:"Iron Ore Train", subtitle:"Zouerat → Choum → Nouadhibou", category:"transport", categoryColor:"#4a9db5",
+    name_ar:"قطار الحديد", subtitle_ar:"ازويرات ← شوم ← نواذيبو",
     desc:"One of the longest and heaviest trains in the world — up to 3 km long. It hauls iron ore across the Sahara from the mines of Zouerat to the port of Nouadhibou, a 700 km journey taking 12–20 hours. Adventure travelers ride the open ore cars for free, sleeping under stars with the vast desert rolling by.",
+    desc_ar:"واحد من أطول وأثقل القطارات في العالم — يصل طوله إلى 3 كيلومترات. ينقل خام الحديد عبر الصحراء من مناجم ازويرات إلى ميناء نواذيبو، في رحلة تمتدّ 700 كيلومتر وتستغرق من 12 إلى 20 ساعة. يمتطي المغامرون عربات الخام المكشوفة مجاناً، ينامون تحت النجوم بينما تتدحرج الصحراء الشاسعة من حولهم.",
     facts:[{label:"Length",value:"Up to 3 km"},{label:"Route",value:"700 km"},{label:"Cargo",value:"Iron Ore"},{label:"Journey",value:"~16 hours"}],
+    facts_ar:[{label:"الطول",value:"حتى 3 كم"},{label:"المسار",value:"700 كم"},{label:"الحمولة",value:"خام الحديد"},{label:"الرحلة",value:"~16 ساعة"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/mauritaniatrain/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=mauritania+iron+ore+train",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Mauritania_Railway",style:"link-wiki"},{label:"Google",icon:"google",url:"https://www.google.com/search?q=mauritania+iron+ore+train",style:"link-google"}]},
   richat: {
     name:"Eye of the Sahara", subtitle:"Richat Structure — Adrar Region", category:"nature", categoryColor:"#6a8c4f",
+    name_ar:"عين الصحراء", subtitle_ar:"تكوين الريشات — منطقة آدرار",
     desc:"Known as the Richat Structure, this stunning geological dome spans 50 km in diameter. Once thought to be a meteor crater, scientists now believe it formed by volcanic uplift and erosion over hundreds of millions of years. Visible from space, it is one of Earth's most iconic natural landmarks.",
+    desc_ar:"تُعرف بتكوين الريشات، وهي قبة جيولوجية مذهلة يبلغ قطرها 50 كيلومتراً. كان يُعتقد سابقاً أنها فوهة نيزك، لكنّ العلماء يرجّحون الآن أنها تشكّلت عبر الرفع البركاني والتعرية على مدى مئات الملايين من السنين. تُرى من الفضاء، وهي واحدة من أبرز المعالم الطبيعية على وجه الأرض.",
     facts:[{label:"Diameter",value:"50 km"},{label:"Type",value:"Geological dome"},{label:"Age",value:"~100M years"},{label:"Visible",value:"From space"}],
+    facts_ar:[{label:"القطر",value:"50 كم"},{label:"النوع",value:"قبة جيولوجية"},{label:"العمر",value:"~100 مليون سنة"},{label:"الرؤية",value:"من الفضاء"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/eyeofthesahara/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=richat+structure+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Richat_Structure",style:"link-wiki"},{label:"NASA",icon:"google",url:"https://earthobservatory.nasa.gov/images/36852/richat-structure-mauritania",style:"link-google"}]},
   arguin: {
     name:"Banc d'Arguin", subtitle:"National Park — Atlantic Coast", category:"nature", categoryColor:"#6a8c4f",
+    name_ar:"حوض آرغين", subtitle_ar:"حظيرة وطنية — الساحل الأطلسي",
     desc:"A UNESCO World Heritage site where the Sahara meets the Atlantic. Home to over 2 million migratory birds annually. The Imraguen people have fished these warm shallow waters for centuries using ancient methods — driving fish into nets with sail boats.",
+    desc_ar:"موقع تراث عالمي لليونسكو حيث تلتقي الصحراء بالمحيط الأطلسي. موطن لأكثر من مليوني طائر مهاجر سنوياً. يصطاد شعب الإمراغن في هذه المياه الضحلة الدافئة منذ قرون بأساليب عريقة — يدفعون الأسماك نحو الشِّباك بقوارب شراعية.",
     facts:[{label:"Area",value:"12,000 km²"},{label:"Status",value:"UNESCO Heritage"},{label:"Birds",value:"2M+ migratory"},{label:"People",value:"Imraguen tribe"}],
+    facts_ar:[{label:"المساحة",value:"12,000 كم²"},{label:"الحالة",value:"تراث اليونسكو"},{label:"الطيور",value:"أكثر من مليونين مهاجر"},{label:"السكان",value:"قبيلة الإمراغن"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/bancdarguin/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=banc+d+arguin+mauritania",style:"link-youtube"},{label:"UNESCO",icon:"wiki",url:"https://whc.unesco.org/en/list/506",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Banc+d'Arguin",style:"link-maps"}]},
   chinguetti: {
     name:"Chinguetti", subtitle:"The 7th Holy City of Islam", category:"historic", categoryColor:"#c0622a",
+    name_ar:"شنقيط", subtitle_ar:"مدينة الإسلام المقدّسة السابعة",
     desc:"Founded in the 13th century as a gathering point for Saharan caravans heading to Mecca. Its ancient libraries hold thousands of medieval manuscripts on astronomy, mathematics and theology. Today it is slowly being reclaimed by encroaching desert dunes — a UNESCO World Heritage site.",
+    desc_ar:"تأسّست في القرن الثالث عشر كنقطة تجمّع للقوافل الصحراوية المتجهة إلى مكة. تحتفظ مكتباتها العريقة بآلاف المخطوطات في الفلك والرياضيات وعلوم الدين. تستردّها اليوم رمال الصحراء الزاحفة شيئاً فشيئاً — وهي موقع تراث عالمي لليونسكو.",
     facts:[{label:"Founded",value:"13th century"},{label:"Status",value:"UNESCO Heritage"},{label:"Manuscripts",value:"~1,300 preserved"},{label:"Known as",value:"7th Holy City"}],
+    facts_ar:[{label:"التأسيس",value:"القرن 13"},{label:"الحالة",value:"تراث اليونسكو"},{label:"المخطوطات",value:"~1,300 محفوظة"},{label:"تُعرف بـ",value:"المدينة المقدّسة السابعة"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/chinguetti/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=chinguetti+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Chinguetti",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Chinguetti+Mauritania",style:"link-maps"}]},
   oualata: {
     name:"Oualata", subtitle:"Ancient Caravan City — UNESCO", category:"historic", categoryColor:"#c0622a",
+    name_ar:"ولاتة", subtitle_ar:"مدينة القوافل العريقة — اليونسكو",
     desc:"One of the oldest cities in Mauritania — a major trans-Saharan trade terminus. Its red-painted houses decorated with intricate geometric patterns are unique in the world. Holds precious medieval manuscripts alongside Chinguetti and Tichit as UNESCO World Heritage sites.",
+    desc_ar:"واحدة من أقدم مدن موريتانيا — ومحطة رئيسية للتجارة العابرة للصحراء. تتميّز بيوتها المطلية بالأحمر والمزيّنة بزخارف هندسية دقيقة بطابع فريد في العالم. تحفظ مخطوطات قروسطية ثمينة إلى جانب شنقيط وتيشيت كموقع تراث عالمي لليونسكو.",
     facts:[{label:"Founded",value:"11th century"},{label:"Status",value:"UNESCO Heritage"},{label:"Known for",value:"Manuscripts & art"},{label:"Location",value:"Eastern Mauritania"}],
+    facts_ar:[{label:"التأسيس",value:"القرن 11"},{label:"الحالة",value:"تراث اليونسكو"},{label:"تشتهر بـ",value:"المخطوطات والفنون"},{label:"الموقع",value:"شرق موريتانيا"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/oualata/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=oualata+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Oualata",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Oualata+Mauritania",style:"link-maps"}]},
   atar: {
     name:"Atar", subtitle:"Gateway to the Adrar", category:"city", categoryColor:"#9e8b6e",
+    name_ar:"أطار", subtitle_ar:"بوابة آدرار",
     desc:"The main city of the Adrar region and gateway to Mauritania's most stunning landscapes — ancient ksour, palm groves and dramatic desert plateaux. A base for trekking, camel riding and visiting the nearby Terjit oasis. The old market and traditional mud-brick architecture are a living snapshot of Saharan life.",
+    desc_ar:"المدينة الرئيسية في منطقة آدرار وبوابة أجمل مناظر موريتانيا الطبيعية — القصور العتيقة وبساتين النخيل والهضاب الصحراوية المهيبة. تُعدّ قاعدة للترحال وركوب الجمال وزيارة واحة ترجيت القريبة. سوقها القديم وعمارتها الطينية التقليدية لقطة حيّة من حياة الصحراء.",
     facts:[{label:"Altitude",value:"~260 m"},{label:"Region",value:"Adrar"},{label:"Known for",value:"Desert gateway"},{label:"Nearby",value:"Terjit oasis"}],
+    facts_ar:[{label:"الارتفاع",value:"~260 م"},{label:"المنطقة",value:"آدرار"},{label:"تشتهر بـ",value:"بوابة الصحراء"},{label:"القريب",value:"واحة ترجيت"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/atar_mauritania/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=atar+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Atar,_Mauritania",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Atar+Mauritania",style:"link-maps"}]},
   terjit: {
     name:"Terjit Oasis", subtitle:"Hidden Jewel of the Sahara", category:"nature", categoryColor:"#6a8c4f",
+    name_ar:"واحة ترجيت", subtitle_ar:"جوهرة الصحراء الخفية",
     desc:"Mauritania's most magical spot — a narrow canyon with palm trees and crystal-clear natural pools fed by mountain springs, hidden in the heart of the Sahara. The contrast between scorching desert above and cool green oasis below is breathtaking. Accessible by 4x4 from Atar, about 45 km away.",
+    desc_ar:"أكثر بقاع موريتانيا سحراً — وادٍ ضيّق تكسوه أشجار النخيل وبِرَك مائية صافية تغذّيها ينابيع الجبال، مختبئة في قلب الصحراء. التباين بين الصحراء الحارقة في الأعلى والواحة الخضراء المنعشة في الأسفل يخطف الأنفاس. يُوصَل إليها بسيارات الدفع الرباعي من أطار على بُعد نحو 45 كيلومتراً.",
     facts:[{label:"From Atar",value:"45 km (4x4)"},{label:"Type",value:"Spring oasis"},{label:"Terrain",value:"Canyon palmeraie"},{label:"Best time",value:"Nov – Feb"}],
+    facts_ar:[{label:"من أطار",value:"45 كم (دفع رباعي)"},{label:"النوع",value:"واحة ينابيع"},{label:"التضاريس",value:"وادٍ ونخيل"},{label:"أفضل وقت",value:"نوفمبر – فبراير"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/terjit/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=terjit+oasis+mauritania",style:"link-youtube"},{label:"Google",icon:"google",url:"https://www.google.com/search?q=terjit+oasis+mauritania",style:"link-google"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Terjit+Oasis+Mauritania",style:"link-maps"}]},
   tichit: {
     name:"Tichit", subtitle:"Ancient Neolithic Settlement", category:"historic", categoryColor:"#c0622a",
+    name_ar:"تيشيت", subtitle_ar:"مستوطنة من العصر الحجري الحديث",
     desc:"One of the oldest known cities in West Africa, Tichit was a thriving urban centre as far back as 1500 BCE. The region contains remarkable Neolithic stone monuments and ancient granaries. Today a quiet UNESCO World Heritage village — crumbling earth houses and a lone mosque stand against an ocean of golden desert.",
+    desc_ar:"واحدة من أقدم المدن المعروفة في غرب أفريقيا، كانت تيشيت مركزاً حضرياً مزدهراً منذ نحو 1500 قبل الميلاد. تضمّ المنطقة آثاراً حجرية مدهشة من العصر الحجري الحديث ومخازن غلال قديمة. هي اليوم قرية هادئة مدرجة في تراث اليونسكو — بيوت طينية متهالكة ومسجد منفرد يقفان في وجه محيط من الرمال الذهبية.",
     facts:[{label:"Founded",value:"~1500 BCE"},{label:"Status",value:"UNESCO Heritage"},{label:"Known for",value:"Neolithic ruins"},{label:"Region",value:"Tagant"}],
+    facts_ar:[{label:"التأسيس",value:"~1500 ق.م"},{label:"الحالة",value:"تراث اليونسكو"},{label:"تشتهر بـ",value:"آثار حجرية حديثة"},{label:"المنطقة",value:"تكانت"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/tichit/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=tichit+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Tichit",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Tichit+Mauritania",style:"link-maps"}]},
   benamera: {
     name:"Ben Amera", subtitle:"World's Second Largest Monolith", category:"nature", categoryColor:"#9e8b6e",
+    name_ar:"بن عميرة", subtitle_ar:"ثاني أكبر صخرة منفردة في العالم",
     desc:"Rising 633 metres from the flat Saharan plain, Ben Amera is the second largest monolith on Earth after Uluru in Australia. This colossal granite inselberg in northwestern Mauritania towers over a surreal lunar landscape near the town of Bir Moghrein. Almost unknown to the outside world, it is one of Africa's most spectacular and least-visited natural wonders.",
+    desc_ar:"ترتفع 633 متراً فوق سهل الصحراء المنبسط، وبن عميرة هي ثاني أكبر صخرة منفردة على الأرض بعد أولورو في أستراليا. تتربّع هذه الكتلة الغرانيتية الهائلة شمال غرب موريتانيا فوق منظر يشبه سطح القمر قرب بلدة بير أم اكرين. تكاد تكون مجهولة للعالم الخارجي، وهي من أروع عجائب أفريقيا الطبيعية وأقلّها زيارة.",
     facts:[{label:"Height",value:"633 m"},{label:"Rank",value:"2nd largest monolith"},{label:"Type",value:"Granite inselberg"},{label:"Region",value:"Tiris Zemmour"}],
+    facts_ar:[{label:"الارتفاع",value:"633 م"},{label:"الترتيب",value:"ثاني أكبر صخرة منفردة"},{label:"النوع",value:"جبل غرانيتي منعزل"},{label:"المنطقة",value:"تيرس زمور"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/benamera/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=ben+amera+mauritania+monolith",style:"link-youtube"},{label:"Google",icon:"google",url:"https://www.google.com/search?q=ben+amera+monolith+mauritania",style:"link-google"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Ben+Amera+Mauritania",style:"link-maps"}]},
   nouakchott: {
     name:"Nouakchott", subtitle:"Capital City ★", category:"city", categoryColor:"#9e8b6e",
+    name_ar:"نواكشوط", subtitle_ar:"العاصمة ★",
     desc:"One of the youngest capital cities in the world — barely a village when Mauritania gained independence in 1960. Today home to over 1 million people. The famous Fish Market at sunset is a vibrant spectacle where hundreds of painted pirogues land their catch on the beach.",
+    desc_ar:"من أحدث عواصم العالم — لم تكن سوى قرية صغيرة حين نالت موريتانيا استقلالها عام 1960. تضمّ اليوم أكثر من مليون نسمة. سوق السمك الشهير عند الغروب مشهد نابض بالحياة حيث تُنزل مئات القوارب الملوّنة صيدها على الشاطئ.",
     facts:[{label:"Population",value:"~1.2 million"},{label:"Founded",value:"1960"},{label:"Elevation",value:"5 m (sea level)"},{label:"Known for",value:"Fish market"}],
+    facts_ar:[{label:"السكان",value:"~1.2 مليون"},{label:"التأسيس",value:"1960"},{label:"الارتفاع",value:"5 م (مستوى البحر)"},{label:"تشتهر بـ",value:"سوق السمك"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/nouakchott/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=nouakchott+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Nouakchott",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Nouakchott+Mauritania",style:"link-maps"}]},
   nouadhibou: {
     name:"Nouadhibou", subtitle:"Port City & Train Terminus", category:"city", categoryColor:"#4a9db5",
+    name_ar:"نواذيبو", subtitle_ar:"مدينة الميناء ومحطة القطار",
     desc:"Mauritania's second city and economic capital — a narrow peninsula jutting between the Atlantic and the Bay of Lévrier. The Iron Ore Train terminates here, offloading millions of tonnes annually at one of Africa's largest iron ore export terminals. The ship graveyard on Cap Blanc beach, with dozens of rusting wrecks stretching along the coast, is one of the world's most surreal and photogenic sights.",
+    desc_ar:"ثاني مدن موريتانيا وعاصمتها الاقتصادية — شبه جزيرة ضيّقة تمتدّ بين المحيط الأطلسي وخليج لِفرييه. ينتهي قطار الحديد هنا، مفرّغاً ملايين الأطنان سنوياً في واحد من أكبر موانئ تصدير خام الحديد في أفريقيا. مقبرة السفن على شاطئ الرأس الأبيض، بعشرات الحطام الصدئ الممتدّ على طول الساحل، من أكثر المشاهد سوريالية وجمالاً في العالم.",
     facts:[{label:"Population",value:"~120,000"},{label:"Port",value:"Iron ore terminal"},{label:"Known for",value:"Ship graveyard"},{label:"Coast",value:"Atlantic & Bay"}],
+    facts_ar:[{label:"السكان",value:"~120,000"},{label:"الميناء",value:"محطة خام الحديد"},{label:"تشتهر بـ",value:"مقبرة السفن"},{label:"الساحل",value:"الأطلسي والخليج"}],
     links:[{label:"Instagram",icon:"instagram",url:"https://www.instagram.com/explore/tags/nouadhibou/",style:"link-instagram"},{label:"YouTube",icon:"youtube",url:"https://www.youtube.com/results?search_query=nouadhibou+mauritania",style:"link-youtube"},{label:"Wikipedia",icon:"wiki",url:"https://en.wikipedia.org/wiki/Nouadhibou",style:"link-wiki"},{label:"Google Maps",icon:"maps",url:"https://maps.google.com/?q=Nouadhibou+Mauritania",style:"link-maps"}]},
 };
 
@@ -792,6 +892,31 @@ const CAT = {
   transport: { bg:'rgba(50,120,160,.2)',  text:'#80c8e8', border:'#4a9db5' },
   city:      { bg:'rgba(140,120,80,.2)',  text:'#d0b880', border:'#9e8b6e' },
 };
+
+// ── UI translation dictionary ─────────────────────────────────────────────────
+const I18N = {
+  en: {
+    tagline: 'Click on any location to discover it',
+    legend:  { all:'All', nature:'Nature', historic:'Historic', transport:'Transport', city:'Cities' },
+    cat:     { nature:'Nature', historic:'Historic', transport:'Transport', city:'City' },
+    prev:'Prev', next:'Next',
+    play:'Play Music', pause:'Pause',
+    introTitle:'Mauritania Explorer',
+    introSub:'An interactive journey through the Sahara and beyond',
+    home:'home',
+  },
+  ar: {
+    tagline: 'اضغط على أي موقع لاكتشافه',
+    legend:  { all:'الكل', nature:'طبيعة', historic:'تاريخي', transport:'نقل', city:'مدن' },
+    cat:     { nature:'طبيعة', historic:'تاريخي', transport:'نقل', city:'مدينة' },
+    prev:'السابق', next:'التالي',
+    play:'تشغيل الموسيقى', pause:'إيقاف',
+    introTitle:'مستكشف موريتانيا',
+    introSub:'رحلة تفاعلية عبر الصحراء وما وراءها',
+    home:'الرئيسية',
+  },
+};
+const t = key => (I18N[LANG] && I18N[LANG][key] !== undefined) ? I18N[LANG][key] : I18N.en[key];
 
 
 const COORDS = {
@@ -818,6 +943,17 @@ const MARKERS = [];
 let map;
 let currentMarkerEl = null;   // emphasize/deselect pattern
 let currentCat      = 'all';
+let LANG            = 'en';    // 'en' | 'ar'
+let currentOpenId   = null;    // id of place shown in the panel (for re-render on lang change)
+
+// ── RTL text shaping plugin — makes MapLibre join/reorder Arabic glyphs ───────
+// Without this, Arabic labels render left-to-right and disconnected (scrambled).
+try {
+  maplibregl.setRTLTextPlugin(
+    'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.min.js',
+    null, true /* lazy load */
+  );
+} catch(e) {}
 
 // ── MapLibre init ─────────────────────────────────────────────────────────────
 map = new maplibregl.Map({
@@ -837,12 +973,29 @@ map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom
 
 map.on('style.load', () => {
   applyDesertPalette();
+  setMapLanguage(LANG);
   addTrainLayer();
   addOceanShimmer();
   addMarkers();
   updateCategoryCounts();
   // Map stays at the wide Africa view until the overlay is tapped
 });
+
+// ── Map label language ────────────────────────────────────────────────────────
+// Switch every symbol layer's text-field between the English and Arabic name
+// fields exposed by the OpenMapTiles schema (name:en / name:ar), with fallbacks.
+function setMapLanguage(lang) {
+  const field = lang === 'ar'
+    ? ['coalesce', ['get','name:ar'], ['get','name']]
+    : ['coalesce', ['get','name:en'], ['get','name:latin'], ['get','name']];
+  const styleData = map.getStyle();
+  if (!styleData || !styleData.layers) return;
+  styleData.layers.forEach(layer => {
+    if (layer.type === 'symbol' && layer.layout && layer.layout['text-field'] !== undefined) {
+      try { map.setLayoutProperty(layer.id, 'text-field', field); } catch(e) {}
+    }
+  });
+}
 
 // ── fly() — centralised flyTo with cubic-out easing (from Mapbox reference) ──
 function fly(opts) {
@@ -926,6 +1079,13 @@ function addOceanShimmer() {
   });
 }
 
+// Short label shown under a marker icon — Arabic name in full, English trimmed to
+// the first two words to keep the badge compact.
+function markerLabel(p) {
+  if (LANG === 'ar' && p.name_ar) return p.name_ar;
+  return p.name.split(' ').slice(0, 2).join(' ');
+}
+
 // ── Markers with custom SVG icons ─────────────────────────────────────────────
 function addMarkers() {
   let delay = 0;
@@ -945,7 +1105,7 @@ function addMarkers() {
     // mb-marker-inner wrapper carries the drop animation so MapLibre's inline
     // transform on the outer element is never clobbered (main fix).
     // SVG icon replaces emoji; animation-delay set on the inner wrapper.
-    el.innerHTML = `<div class="mb-marker-inner" style="animation-delay:${delay}ms"><div class="mb-icon">${iconSvg}</div><div class="mb-label">${p.name.split(' ').slice(0,2).join(' ')}</div></div>`;
+    el.innerHTML = `<div class="mb-marker-inner" style="animation-delay:${delay}ms"><div class="mb-icon">${iconSvg}</div><div class="mb-label">${markerLabel(p)}</div></div>`;
 
     el.onclick = () => {
       el.classList.add('clicked');
@@ -1137,9 +1297,15 @@ function navPlace(dir) {
   openPlace(PLACE_KEYS[currentPlaceIdx]);
 }
 
+// Pick the language-appropriate field from a place, falling back to English.
+function pField(p, key) {
+  return (LANG === 'ar' && p[key + '_ar']) ? p[key + '_ar'] : p[key];
+}
+
 function openPlace(id) {
   const p = PLACES[id];
   if (!p) return;
+  currentOpenId = id;
   const c   = CAT[p.category];
   const idx = PLACE_KEYS.indexOf(id);
   if (idx >= 0) currentPlaceIdx = idx;
@@ -1154,15 +1320,17 @@ function openPlace(id) {
   hero.innerHTML = `<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 20px ${p.categoryColor})">${sizedSvg}</div>`;
 
   const badge = document.getElementById('panelCat');
-  badge.textContent = p.category.charAt(0).toUpperCase() + p.category.slice(1);
+  badge.textContent = (I18N[LANG].cat && I18N[LANG].cat[p.category]) || p.category;
   badge.style.cssText = `background:${c.bg};color:${c.text};border:1.5px solid ${c.border}`;
 
-  document.getElementById('panelTitle').textContent = p.name;
-  document.getElementById('panelSub').textContent   = p.subtitle;
-  document.getElementById('panelDesc').textContent  = p.desc;
-  document.getElementById('panelFacts').innerHTML   = p.facts.map(f =>
+  document.getElementById('panelTitle').textContent = pField(p, 'name');
+  document.getElementById('panelSub').textContent   = pField(p, 'subtitle');
+  document.getElementById('panelDesc').textContent  = pField(p, 'desc');
+  const facts = (LANG === 'ar' && p.facts_ar) ? p.facts_ar : p.facts;
+  document.getElementById('panelFacts').innerHTML   = facts.map(f =>
     `<div class="fact-card"><div class="fact-label">${f.label}</div><div class="fact-value">${f.value}</div></div>`
   ).join('');
+  // Links are intentionally kept identical across languages (labels, URLs, layout).
   document.getElementById('panelLinks').innerHTML = p.links.map(l =>
     `<a href="${l.url}" target="_blank" rel="noopener" class="link-btn ${l.style}">${LINK_ICONS[l.icon] || ''}${l.label}</a>`
   ).join('');
@@ -1179,8 +1347,63 @@ function openPlace(id) {
 function closePanel() {
   document.getElementById('infoPanel').classList.remove('open');
   document.getElementById('backdrop').classList.remove('open');
+  currentOpenId = null;
   deselectMarker();
   fly({ center: CONFIG.center, zoom: CONFIG.restingZoom, duration: 1200 });
+}
+
+// ── Language switching engine ─────────────────────────────────────────────────
+function applyLanguage(lang) {
+  LANG = (lang === 'ar') ? 'ar' : 'en';
+  const rtl = LANG === 'ar';
+  document.documentElement.lang = LANG;
+  document.documentElement.dir  = rtl ? 'rtl' : 'ltr';
+  document.body.classList.toggle('rtl', rtl);
+
+  // Header tagline
+  const tag = document.getElementById('tagline');
+  if (tag) tag.textContent = t('tagline');
+
+  // Legend pill labels
+  const legendMap = t('legend');
+  document.querySelectorAll('.legend-item').forEach(item => {
+    const cat = item.getAttribute('data-cat');
+    const txt = item.querySelector('.legend-text');
+    if (txt && legendMap[cat]) txt.textContent = legendMap[cat];
+  });
+
+  // Panel nav buttons
+  const prevEl = document.getElementById('navPrevText');
+  const nextEl = document.getElementById('navNextText');
+  if (prevEl) prevEl.textContent = t('prev');
+  if (nextEl) nextEl.textContent = t('next');
+
+  // Music button label (respects current play state)
+  const mLabel = document.getElementById('musicBtnText');
+  if (mLabel) mLabel.textContent = musicOn ? t('pause') : t('play');
+
+  // Home link
+  const homeEl = document.getElementById('homeLink');
+  if (homeEl) homeEl.textContent = (rtl ? t('home') + ' →' : '← ' + t('home'));
+
+  // Language toggle active state
+  document.querySelectorAll('.lang-toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-lang') === LANG);
+  });
+
+  // Custom marker labels (cities & attractions)
+  MARKERS.forEach(({ id, el }) => {
+    const lbl = el.querySelector('.mb-label');
+    if (lbl) lbl.textContent = markerLabel(PLACES[id]);
+  });
+
+  // Map labels + open panel re-render
+  if (map && map.isStyleLoaded && map.isStyleLoaded()) setMapLanguage(LANG);
+  if (currentOpenId) openPlace(currentOpenId);
+}
+
+function setLanguage(lang) {
+  applyLanguage(lang);
 }
 
 // ── Sand particle system (throttled to ~25 fps, 20 particles) ─────────────────
@@ -1244,58 +1467,108 @@ const SONGS = [
   { id: 'z2Bf5In027A', title: 'Tikifit' },
   { id: 'wvvlkVpS2Vo', title: 'Tikifit (DJ Dahker)', start: 205 },
 ];
-const picked = SONGS[Math.floor(Math.random() * SONGS.length)];
-document.getElementById('musicLabel').textContent = picked.title;
+let songIdx = Math.floor(Math.random() * SONGS.length);
+let pickedSong = SONGS[songIdx];
+document.getElementById('musicLabel').textContent = pickedSong.title;
 
-let musicOn  = false;
-const btn    = document.getElementById('musicBtn');
-const mIcon  = document.getElementById('musicIcon');
-const pulse  = document.getElementById('musicPulse');
-const ytDiv  = document.getElementById('ytPlayer');
+let musicOn    = false;
+let ytPlayer   = null;
+let ytApiReady = false;
+let pendingPlay = false;
+const btn     = document.getElementById('musicBtn');
+const pulse   = document.getElementById('musicPulse');
+const ytDiv   = document.getElementById('ytPlayer');
 const overlay = document.getElementById('musicOverlay');
 
 const PLAY_PATH  = '<path d="M8 5v14l11-7z"/>';
 const PAUSE_PATH = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
 
-function startMusic() {
-  const start = picked.start ? `&start=${picked.start}` : '';
-  ytDiv.innerHTML = `<iframe src="https://www.youtube.com/embed/${picked.id}?autoplay=1&loop=1&playlist=${picked.id}&controls=0&rel=0&modestbranding=1${start}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-  musicOn = true;
-  btn.childNodes[0].innerHTML = PAUSE_PATH;
-  btn.lastChild.textContent = ' Pause';
-  pulse.style.display = 'block';
+// Pre-initialize player as soon as YT API loads (not in a gesture).
+// This cues the video so playVideo() can be called synchronously on tap.
+window.onYouTubeIframeAPIReady = function() {
+  ytApiReady = true;
+  initPlayer();
+};
+
+function initPlayer() {
+  ytDiv.innerHTML = '<div id="ytFrame"></div>';
+  ytPlayer = new YT.Player('ytFrame', {
+    height: '1', width: '1',
+    videoId: pickedSong.id,
+    playerVars: {
+      autoplay: 0, loop: 1, playlist: pickedSong.id,
+      controls: 0, rel: 0, modestbranding: 1,
+      start: pickedSong.start || 0,
+    },
+    events: {
+      onReady: function(e) {
+        if (pendingPlay) {
+          pendingPlay = false;
+          e.target.unMute(); e.target.setVolume(100); e.target.playVideo();
+        }
+      },
+      onError: function() {
+        tryNextSong();
+      },
+    },
+  });
 }
 
-function handleOverlayTap() {
+let songAttempts = 0;
+function tryNextSong() {
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch(e) {} ytPlayer = null; }
+  ytDiv.innerHTML = '';
+  if (++songAttempts >= SONGS.length) return; // every song failed on this device
+  songIdx = (songIdx + 1) % SONGS.length;
+  pickedSong = SONGS[songIdx];
+  document.getElementById('musicLabel').textContent = pickedSong.title;
+  initPlayer();
+}
+
+function startMusic() {
+  musicOn = true;
+  btn.querySelector('svg').innerHTML = PAUSE_PATH;
+  document.getElementById('musicBtnText').textContent = t('pause');
+  pulse.style.display = 'block';
+  // Player is pre-cued, so playVideo() runs synchronously inside the tap
+  // gesture — required by iOS/Android to permit audio playback.
+  if (ytPlayer && typeof ytPlayer.playVideo === 'function') {
+    ytPlayer.unMute(); ytPlayer.setVolume(100); ytPlayer.playVideo();
+  } else {
+    pendingPlay = true;
+    if (ytApiReady) initPlayer();
+  }
+}
+
+function stopMusic() {
+  if (ytPlayer) { try { ytPlayer.pauseVideo(); } catch(e) {} }
+  musicOn = false;
+  pendingPlay = false;
+  btn.querySelector('svg').innerHTML = PLAY_PATH;
+  document.getElementById('musicBtnText').textContent = t('play');
+  pulse.style.display = 'none';
+}
+
+function toggleMusic() {
+  if (!musicOn) { startMusic(); } else { stopMusic(); }
+}
+
+function beginExperience(lang) {
+  applyLanguage(lang);
   overlay.style.display = 'none';
-  startMusic();
+  startMusic();   // still inside the tap gesture — required for iOS audio
   // Fly in from Africa overview → Mauritania resting view.
-  // ease-in-out quad keeps Africa visible in the first half, then
-  // sweeps in to Mauritania with a smooth landing.
   map.flyTo({
     center:    CONFIG.center,
     zoom:      CONFIG.restingZoom,
     essential: true,
     duration:  CONFIG.introDuration,
-    easing:    t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2,
+    easing:    e => e < .5 ? 2*e*e : 1 - Math.pow(-2*e+2, 2)/2,
   });
-  // Once the intro animation settles, constrain the map
   map.once('moveend', () => {
     map.setMinZoom(CONFIG.minZoom);
     map.setMaxBounds([[-26, 10], [4, 35]]);
   });
-}
-
-function toggleMusic() {
-  if (!musicOn) {
-    startMusic();
-  } else {
-    ytDiv.innerHTML = '';
-    musicOn = false;
-    btn.childNodes[0].innerHTML = PLAY_PATH;
-    btn.lastChild.textContent = ' Play Music';
-    pulse.style.display = 'none';
-  }
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
