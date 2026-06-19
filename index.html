@@ -557,17 +557,13 @@
     body.rtl .logo-svg, body.rtl .overlay-logo { direction: ltr; }
     .logo-svg text, .overlay-logo text { direction: ltr; unicode-bidi: bidi-override; }
 
-    /* ── Personal footer ── */
-    .personal-footer {
-      flex-shrink: 0; text-align: center; padding: 4px 12px 8px;
-      font-size: .62rem; color: #5a4d38; letter-spacing: .3px;
+    /* ── LinkedIn icon in music bar ── */
+    .linkedin-link {
+      color: #6b5d42; text-decoration: none; display: flex; align-items: center;
+      flex-shrink: 0; transition: color .2s; padding: 4px;
     }
-    .personal-footer a {
-      color: #7a6550; text-decoration: none; display: inline-flex; align-items: center;
-      gap: 4px; transition: color .2s;
-    }
-    .personal-footer a:hover { color: var(--gold); }
-    .personal-footer svg { width: 11px; height: 11px; flex-shrink: 0; }
+    .linkedin-link:hover { color: var(--gold); }
+    .linkedin-link svg { width: 14px; height: 14px; display: block; }
   </style>
 </head>
 <body>
@@ -690,17 +686,14 @@
       <button class="lang-toggle-btn active" data-lang="en" onclick="setLanguage('en')">EN</button>
       <button class="lang-toggle-btn" data-lang="ar" onclick="setLanguage('ar')">ع</button>
     </div>
-  </div>
-
-  <div id="ytPlayer"></div>
-
-  <div class="personal-footer">
-    <a href="https://www.linkedin.com/in/mohamed-lemine-abbad/" target="_blank" rel="noopener" aria-label="LinkedIn">
-      <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="width:14px;height:14px">
+    <a href="https://www.linkedin.com/in/mohamed-lemine-abbad/" target="_blank" rel="noopener" aria-label="LinkedIn" class="linkedin-link">
+      <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M20.45 20.45H17V14.88c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.57V9h3.27v1.56h.05c.46-.87 1.58-1.78 3.24-1.78 3.46 0 4.1 2.28 4.1 5.24l.02 5.93zM5.34 7.43a1.9 1.9 0 1 1 0-3.8 1.9 1.9 0 0 1 0 3.8zM6.9 20.45H3.77V9H6.9v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.28V1.72C24 .77 23.2 0 22.22 0z"/>
       </svg>
     </a>
   </div>
+
+  <div id="ytPlayer"></div>
 </div>
 
 <!-- World inset map (Africa-focused) -->
