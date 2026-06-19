@@ -474,7 +474,7 @@
     .hero-icon-wrap svg { width: 100%; height: 100%; display: block; }
 
     .panel-close {
-      position: absolute; top: 10px; left: 10px; width: 30px; height: 30px; border-radius: 50%;
+      position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%;
       background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.15); color: #bbb;
       cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;
       transition: background .2s, color .2s;
@@ -547,7 +547,7 @@
       body.rtl .info-panel { right: auto; left: 0; bottom: -100%; top: auto; transition: bottom .35s cubic-bezier(.4,0,.2,1); will-change: bottom; }
       body.rtl .info-panel.open { bottom: 0; }
     }
-    body.rtl .panel-close { left: auto; right: 10px; }
+    body.rtl .panel-close { right: auto; left: 10px; }
     /* Link buttons stay identical (LTR, English labels, icon-left) in Arabic mode */
     body.rtl .link-btn { direction: ltr; justify-content: flex-start; }
     body.rtl .link-btn:hover { transform: translateX(-4px); }
