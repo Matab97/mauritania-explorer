@@ -83,8 +83,9 @@ Oualata · Atar · Terjit Oasis · Tichit · Ben Amera · Nouakchott · Nouadhib
 
 ## Running locally
 
-The app is a single static `index.html` with no build step and no dependencies to
-install. Serve the repository root with any static file server and open it in a browser:
+The app has no build step and no dependencies to install. Because it uses ES modules
+it must be served over HTTP (opening `index.html` directly as a `file://` URL will fail).
+Serve the repository root with any static file server:
 
 ```bash
 python3 -m http.server 8000
@@ -96,11 +97,11 @@ and music are loaded from CDNs (unpkg, OpenFreeMap, Google Fonts, YouTube).
 
 ## Tech stack
 
-- Vanilla HTML, CSS, and JavaScript — everything lives in `index.html`
+- Vanilla HTML, CSS, and JavaScript — ES modules, no build step, no npm, no framework
+- `index.html` shell + `css/styles.css` + `js/` modules (`state`, `config`, `icons`, `data`, `i18n`, `map`, `markers`, `filters`, `panel`, `sand`, `music`, `main`)
 - [MapLibre GL JS 4.5.0](https://maplibre.org/) for map rendering
 - [OpenFreeMap](https://openfreemap.org/) dark vector tiles
 - Fonts: Inter · Amiri · [Reem Kufi](https://fonts.google.com/specimen/Reem+Kufi)
-- No build step, no npm, no framework
 
 ## Deployment
 
@@ -115,34 +116,63 @@ Kubernetes).
 Browser → Cloudflare Tunnel → Traefik ingress (k3s) → mauritania Service → nginx:alpine pod
 ```
 
-The `index.html` and `favicon.svg` are stored as a Kubernetes **ConfigMap**
-(`mauritania-html` in the `apps` namespace) and mounted into an `nginx:alpine`
-container at `/usr/share/nginx/html`.
+The app files are stored in three Kubernetes **ConfigMaps** (all in the `apps`
+namespace) and mounted into an `nginx:alpine` container at `/usr/share/nginx/html`:
+
+| ConfigMap | Contents | Mount path |
+|---|---|---|
+| `mauritania-html` | `index.html`, `favicon.svg` | `/usr/share/nginx/html/` |
+| `mauritania-css`  | `css/styles.css` | `/usr/share/nginx/html/css/` |
+| `mauritania-js`   | all `js/*.js` modules | `/usr/share/nginx/html/js/` |
 
 ### Re-deploying after a code change
 
-1. **Edit** `index.html` (and/or `favicon.svg`) locally.
-2. **Commit and push** to GitHub:
+1. **Commit and push** to GitHub:
    ```bash
-   git add index.html favicon.svg
+   git add -A
    git commit -m "your message"
    git push origin main
    ```
-3. **Update the ConfigMap** and roll the deployment on the server:
-   ```bash
-   # Copy files to the server (password: 12345678)
-   scp index.html favicon.svg abbad@100.64.0.10:/tmp/
 
-   # SSH in and apply
-   ssh abbad@100.64.0.10
-   sudo k3s kubectl create configmap mauritania-html -n apps \
-     --from-file=index.html=/tmp/index.html \
-     --from-file=favicon.svg=/tmp/favicon.svg \
-     --dry-run=client -o yaml | sudo k3s kubectl apply -f -
-   sudo k3s kubectl rollout restart deploy/mauritania -n apps
-   sudo k3s kubectl rollout status deploy/mauritania -n apps --timeout=90s
-   rm /tmp/index.html /tmp/favicon.svg
+2. **Copy files to the server:**
+   ```bash
+   sshpass -p '12345678' scp -r index.html favicon.svg css js abbad@100.64.0.10:/tmp/mauritania-deploy/
    ```
+
+3. **Update all three ConfigMaps and roll out** (single SSH session):
+   ```bash
+   sshpass -p '12345678' ssh abbad@100.64.0.10 'bash -s' <<'EOF'
+   set -e
+   cd /tmp/mauritania-deploy
+   sudo k3s kubectl create configmap mauritania-html -n apps \
+     --from-file=index.html --from-file=favicon.svg \
+     --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+   sudo k3s kubectl create configmap mauritania-css -n apps \
+     --from-file=css --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+   sudo k3s kubectl create configmap mauritania-js -n apps \
+     --from-file=js --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+   sudo k3s kubectl rollout restart deploy/mauritania -n apps
+   sudo k3s kubectl rollout status deploy/mauritania -n apps --timeout=120s
+   rm -rf /tmp/mauritania-deploy
+   EOF
+   ```
+
+### One-time setup (already applied — for reference only)
+
+The `mauritania` Deployment was patched once to add the `css` and `js` volume mounts.
+If you ever redeploy from scratch, add these to the Deployment manifest:
+
+```yaml
+volumeMounts:
+  - { name: html, mountPath: /usr/share/nginx/html/index.html, subPath: index.html }
+  - { name: html, mountPath: /usr/share/nginx/html/favicon.svg, subPath: favicon.svg }
+  - { name: css,  mountPath: /usr/share/nginx/html/css }
+  - { name: js,   mountPath: /usr/share/nginx/html/js }
+volumes:
+  - { name: html, configMap: { name: mauritania-html } }
+  - { name: css,  configMap: { name: mauritania-css } }
+  - { name: js,   configMap: { name: mauritania-js } }
+```
 
 ### Useful kubectl commands
 
@@ -153,8 +183,8 @@ sudo k3s kubectl get pods -n apps -l app=mauritania
 # Tail nginx logs
 sudo k3s kubectl logs -n apps -l app=mauritania -f
 
-# Inspect the ConfigMap
-sudo k3s kubectl get cm mauritania-html -n apps -o yaml
+# Inspect a ConfigMap
+sudo k3s kubectl get cm mauritania-js -n apps -o yaml
 ```
 
 ## Credits
