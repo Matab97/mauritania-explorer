@@ -12,6 +12,18 @@
   <link rel="mask-icon" href="favicon.svg" color="#c0622a"/>
   <meta name="theme-color" content="#160f06"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:wght@400;700&family=Reem+Kufi:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Claim the YT callback synchronously before any module has a chance to load.
+       ES modules are deferred; the YouTube API can fire onYouTubeIframeAPIReady
+       before modules execute. We queue the event here so music.js can drain it. -->
+  <script>
+    window.__ytApiReadyCalled = false;
+    window.onYouTubeIframeAPIReady = function() {
+      window.__ytApiReadyCalled = true;
+      if (typeof window.__ytApiReadyHandler === 'function') {
+        window.__ytApiReadyHandler();
+      }
+    };
+  </script>
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet"/>

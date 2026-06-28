@@ -21,12 +21,16 @@ const ytDiv   = document.getElementById('ytPlayer');
 const PLAY_PATH  = '<path d="M8 5v14l11-7z"/>';
 const PAUSE_PATH = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
 
-// Pre-initialize player as soon as YT API loads (not in a gesture).
-// This cues the video so playVideo() can be called synchronously on tap.
-window.onYouTubeIframeAPIReady = function() {
+// Wire up the YT API ready callback. A tiny classic script in <head> already
+// owns window.onYouTubeIframeAPIReady (ES modules are deferred and the API can
+// fire before this module executes). We register here and also check if it
+// already fired while we were waiting.
+function onYTReady() {
   ytApiReady = true;
   initPlayer();
-};
+}
+window.__ytApiReadyHandler = onYTReady;
+if (window.__ytApiReadyCalled) onYTReady(); // API already fired before module ran
 
 function initPlayer() {
   ytDiv.innerHTML = '<div id="ytFrame"></div>';
