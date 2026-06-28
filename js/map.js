@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { CONFIG, cubicOut } from './config.js';
-import { TRAIN_LINE } from './data.js';
+import { TRAIN_LINE, MAURITANIA_BORDER } from './data.js';
 import { addMarkers, initTrainSprite } from './markers.js';
 import { updateCategoryCounts } from './filters.js';
 import { openPlace } from './panel.js';
@@ -34,6 +34,7 @@ map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom
 map.on('style.load', () => {
   applyDesertPalette();
   setMapLanguage(state.LANG);
+  addMauritaniaBorder();
   addTrainLayer();
   addOceanShimmer();
   addMarkers();
@@ -89,13 +90,38 @@ function applyDesertPalette() {
       try { map.setPaintProperty(id, 'line-color', '#0e2030'); } catch(e) {}
     }
     if (id.includes('border') || id.includes('boundary')) {
+      // Dimmed so the dedicated gold Mauritania outline stands out.
       try { map.setPaintProperty(id, 'line-color',   '#c0622a'); } catch(e) {}
-      try { map.setPaintProperty(id, 'line-opacity', 0.7);       } catch(e) {}
+      try { map.setPaintProperty(id, 'line-opacity', 0.35);      } catch(e) {}
     }
     if (id.includes('label') || id.includes('place') || id.includes('city')) {
       try { map.setPaintProperty(id, 'text-color',       '#c8a870'); } catch(e) {}
       try { map.setPaintProperty(id, 'text-halo-color',  '#1a1208'); } catch(e) {}
     }
+  });
+}
+
+// ── Mauritania gold border ────────────────────────────────────────────────────
+// A dedicated source + glowing gold outline that highlights the country against
+// the dimmed generic borders.
+function addMauritaniaBorder() {
+  map.addSource('mr-border', {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [MAURITANIA_BORDER] } }
+  });
+  map.addLayer({
+    id: 'mr-fill', type: 'fill', source: 'mr-border',
+    paint: { 'fill-color': '#e8c87a', 'fill-opacity': 0.04 }
+  });
+  map.addLayer({
+    id: 'mr-border-glow', type: 'line', source: 'mr-border',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint:  { 'line-color': '#f0c14b', 'line-width': 9, 'line-blur': 6, 'line-opacity': 0.45 }
+  });
+  map.addLayer({
+    id: 'mr-border-line', type: 'line', source: 'mr-border',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint:  { 'line-color': '#e8c87a', 'line-width': 2.2, 'line-opacity': 0.95 }
   });
 }
 
